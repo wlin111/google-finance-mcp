@@ -1,5 +1,9 @@
 # google-finance-mcp
 
+<p align="center">
+<img src="./docs/assets/lmstudio-google-finance-amzn-news-camera-hq.gif" alt="record" width="600">
+</p>
+
 Unofficial MCP server for Google Finance. It lets an MCP client run Google
 Finance lookup tools from your own computer.
 
