@@ -68,10 +68,10 @@ you only write `google-finance-mcp`.
 
 ### Step 3: Start with these tools
 
-After connecting your MCP client, try these first in the AI tools:
-" Get latest news about NVDA. ”
-" Get company infor for SPCX. '
-" Get analysis of INTC, show me the target prices. "
+After connecting your MCP client, try these first in the AI tools:<br/>
+" Get latest news about NVDA. ”<br/>
+" Get company infor for SPCX. '<br/>
+" Get analysis of INTC, show me the target prices. "<br/>
 
 ## Other easy release downloads
 
