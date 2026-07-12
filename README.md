@@ -68,18 +68,10 @@ you only write `google-finance-mcp`.
 
 ### Step 3: Start with these tools
 
-After connecting your MCP client, try these first:
-
-- `google_finance_list_rpcs`: show the current Google Finance home-page tools.
-- `google_finance_list_quote_rpcs`: show quote-page tools for a symbol and
-  exchange, for example `NVDA` and `NASDAQ`.
-- `google_finance_call_dataset`: call a home-page dataset by key.
-- `google_finance_call_quote_dataset`: call a quote-page dataset by symbol,
-  exchange, and dataset key.
-
-If you downloaded the `.pkg` with Safari, Chrome, or another app and macOS shows
-a malware verification warning, download it again with the Terminal commands in
-Step 1.
+After connecting your MCP client, try these first in the AI tools:
+" Get latest news about NVDA. ”
+" Get company infor for SPCX. '
+" Get analysis of INTC, show me the target prices. "
 
 ## Other easy release downloads
 
