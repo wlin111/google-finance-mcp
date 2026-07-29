@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .rpc_metadata import LabeledDataContext
+
 JSONValue = Any
 
 
@@ -95,7 +97,9 @@ KEY_STATISTICS_VECTOR_FIELDS: tuple[dict[str, JSONValue], ...] = (
 )
 
 
-def enrich_key_statistics_result(result: dict[str, JSONValue]) -> dict[str, JSONValue]:
+def enrich_key_statistics_result(
+    result: dict[str, JSONValue], context: LabeledDataContext | None = None
+) -> dict[str, JSONValue]:
     """Attach best-effort labels to Google Finance quote-page ds:13 results.
 
     Google Finance currently returns gXxkFd as a compact vector without field
@@ -104,9 +108,15 @@ def enrich_key_statistics_result(result: dict[str, JSONValue]) -> dict[str, JSON
     semantic names.
     """
 
-    labeled_rows = [_label_row(row) for row in _extract_rows(result.get("data"))]
-    if not labeled_rows:
+    if context is None or not context.validates_dataset(
+        "ds:13", '[["SYMBOL", "EXCHANGE"]]', "Key statistics / ratios"
+    ) or not context.validates_result_id(result.get("id")):
         return result
+
+    rows = _extract_rows(result.get("data"))
+    if not rows:
+        return result
+    labeled_rows = [_label_row(row) for row in rows]
 
     return {
         **result,
@@ -117,6 +127,7 @@ def enrich_key_statistics_result(result: dict[str, JSONValue]) -> dict[str, JSON
                 "Google Finance does not expose labels for this compact key-statistics vector. "
                 "Names are structural/inferred labels; use raw_index and raw_value as the source of truth."
             ),
+            "context": context.as_labeled_data_dict(),
             "field_definitions": list(KEY_STATISTICS_VECTOR_FIELDS),
             "rows": labeled_rows,
         },
@@ -124,23 +135,26 @@ def enrich_key_statistics_result(result: dict[str, JSONValue]) -> dict[str, JSON
 
 
 def _extract_rows(data: JSONValue) -> list[list[JSONValue]]:
-    if not isinstance(data, list) or len(data) < 3:
+    if not isinstance(data, list) or len(data) != 3 or data[:2] != [None, None]:
         return []
     rows = data[2]
     if not isinstance(rows, list):
         return []
     if _looks_like_key_statistics_row(rows):
         return [rows]
-    return [row for row in rows if _looks_like_key_statistics_row(row)]
+    if not rows or not all(_looks_like_key_statistics_row(row) for row in rows):
+        return []
+    return rows
 
 
 def _looks_like_key_statistics_row(value: JSONValue) -> bool:
     return (
         isinstance(value, list)
-        and len(value) >= 2
+        and len(value) >= len(KEY_STATISTICS_VECTOR_FIELDS)
         and isinstance(value[0], list)
         and len(value[0]) == 2
         and all(isinstance(item, str) for item in value[0])
+        and all(isinstance(item, int | float) and not isinstance(item, bool) for item in value[1:])
     )
 
 

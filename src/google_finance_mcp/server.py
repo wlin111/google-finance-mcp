@@ -17,7 +17,7 @@ JSONValue = Any
 client = GoogleFinanceClient()
 server = Server(
     "google-finance-mcp",
-    version="0.1.0",
+    version="0.1.2",
     instructions=(
         "Fetches Google Finance beta page RPC mappings from AF_initDataKeys and "
         "AF_dataServiceRequests, honors the page cache headers, and calls the "

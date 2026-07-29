@@ -4,6 +4,7 @@ pyproject.toml
 src/google_finance_mcp/__init__.py
 src/google_finance_mcp/__main__.py
 src/google_finance_mcp/client.py
+src/google_finance_mcp/financials.py
 src/google_finance_mcp/key_statistics.py
 src/google_finance_mcp/quote_holdings.py
 src/google_finance_mcp/rpc_metadata.py
@@ -15,4 +16,5 @@ src/google_finance_mcp.egg-info/entry_points.txt
 src/google_finance_mcp.egg-info/requires.txt
 src/google_finance_mcp.egg-info/top_level.txt
 tests/test_client.py
+tests/test_financials.py
 tests/test_server.py

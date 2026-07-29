@@ -17,8 +17,7 @@ from google_finance_mcp.client import (
     parse_batchexecute_response,
     parse_mapping_from_html,
 )
-from google_finance_mcp.key_statistics import enrich_key_statistics_result
-from google_finance_mcp.quote_holdings import enrich_quote_holdings_result, quote_holdings_request
+from google_finance_mcp.quote_holdings import quote_holdings_request
 from google_finance_mcp.rpc_metadata import metadata_for_dataset
 
 UTC = timezone.utc
@@ -107,11 +106,16 @@ def test_quote_page_mapping_uses_quote_metadata() -> None:
     assert mapping.requests["ds:3"].metadata.description == "Long company/security profile and descriptive fields."
 
 
-def test_quote_page_mapping_matches_current_shifted_dataset_keys() -> None:
+def test_quote_page_mapping_matches_current_dataset_keys() -> None:
     html = """
-    <html><head><script nonce="abc">var AF_initDataKeys = ["ds:5","ds:16","ds:19","ds:20"];
-    var AF_dataServiceRequests = {'ds:5' : {id:'YTM9q',request:[[null,["NVDA","NASDAQ"]]]},
-    'ds:16' : {id:'Pr8h2e',request:[[[null,["NVDA","NASDAQ"]]],null,1]},
+    <html><head><script nonce="abc">var AF_initDataKeys = ["ds:3","ds:5","ds:6","ds:7","ds:8","ds:9","ds:16","ds:19","ds:20"];
+    var AF_dataServiceRequests = {'ds:3' : {id:'JL8oKc',request:[[[null,["NVDA","NASDAQ"]]]]},
+    'ds:5' : {id:'SICF5d',request:[[null,["NVDA","NASDAQ"]],4]},
+    'ds:6' : {id:'YTM9q',request:[[null,["NVDA","NASDAQ"]]]},
+    'ds:7' : {id:'Kcy68c',request:[[[null,["NVDA","NASDAQ"]]],1]},
+    'ds:8' : {id:'XxQsbd',request:[[[null,["NVDA","NASDAQ"]]],1]},
+    'ds:9' : {id:'ADgT7b',request:[[[null,["NVDA","NASDAQ"]]],1,1,1]},
+    'ds:16' : {id:'dlNq8b',request:[[[null,["NVDA","NASDAQ"]]],1,1,1]},
     'ds:19' : {id:'RiQiSd',request:[null,null,25]},
     'ds:20' : {id:'X12h2b',request:[]}};
     var AF_initDataChunkQueue = [];</script></head><body>FinHubUi</body></html>
@@ -123,8 +127,14 @@ def test_quote_page_mapping_matches_current_shifted_dataset_keys() -> None:
         {"cache-control": "max-age=60"},
     )
 
-    assert mapping.requests["ds:5"].metadata.purpose == "Analyst ratings and price targets"
-    assert mapping.requests["ds:16"].metadata.purpose == "Financials / estimates"
+    assert mapping.requests["ds:3"].metadata.purpose == "Company profile"
+    assert mapping.requests["ds:5"].metadata.purpose == "Related securities"
+    assert mapping.requests["ds:5"].metadata.request_shape == "[tuple, 4]"
+    assert mapping.requests["ds:6"].metadata.purpose == "Analyst ratings and price targets"
+    assert mapping.requests["ds:7"].metadata.purpose == "Earnings history and estimates"
+    assert mapping.requests["ds:8"].metadata.purpose == "Earnings history and estimates alternate"
+    assert mapping.requests["ds:9"].metadata.purpose == "Security overview card"
+    assert mapping.requests["ds:16"].metadata.purpose == "Security overview card alternate"
     assert mapping.requests["ds:19"].metadata.purpose == "Empty initialization endpoint"
     assert mapping.requests["ds:19"].metadata.request_shape == "[null, null, 25]"
     assert mapping.requests["ds:20"].metadata.purpose == "Empty initialization endpoint"
@@ -214,15 +224,46 @@ def test_parse_batchexecute_response() -> None:
     assert parse_batchexecute_response(raw) == [{"id": "xh8wxf", "data": [[["quote"]]]}]
 
 
-def test_enrich_key_statistics_result_labels_raw_vector() -> None:
-    result = {
-        "id": "gXxkFd",
-        "data": [None, None, [["UUUU", "NYSEAMERICAN"], 0.625, 0.3125, 0.0625, 56.25, 0.4832, 0.3921, 0.1247, 35.85, 4.5, 11, 1.6842105263157894]],
-    }
+@pytest.mark.anyio
+async def test_call_dataset_labels_key_statistics_with_valid_context() -> None:
+    request = [["UUUU", "NYSEAMERICAN"]]
+    mapping = ApiMapping(
+        source_url="https://www.google.com/finance/beta/quote/UUUU:NYSEAMERICAN",
+        source_path="/finance/beta/quote/UUUU:NYSEAMERICAN",
+        batchexecute_url=FINHUB_BATCHEXECUTE_URL,
+        init_data_keys=["ds:13"],
+        requests={
+            "ds:13": DataServiceRequest(
+                key="ds:13",
+                rpc_id="gXxkFd",
+                request=request,
+                metadata=metadata_for_dataset("ds:13", "gXxkFd", request, source_path="/finance/beta/quote/UUUU:NYSEAMERICAN"),
+            )
+        },
+        cache_policy=CachePolicy(
+            cache_control="max-age=60",
+            expires=None,
+            date=None,
+            fetched_at=datetime(2026, 5, 26, tzinfo=UTC),
+            expires_at=datetime(2026, 5, 26, 0, 1, tzinfo=UTC),
+        ),
+    )
+    data = [
+        None,
+        None,
+        [["UUUU", "NYSEAMERICAN"], 0.625, 0.3125, 0.0625, 56.25, 0.4832, 0.3921, 0.1247, 35.85, 4.5, 11, 1.6842105263157894],
+    ]
 
-    enriched = enrich_key_statistics_result(result)
+    class KeyStatisticsClient(GoogleFinanceClient):
+        async def get_mapping(self, *, page_path: str = "/finance/beta", force_refresh: bool = False) -> ApiMapping:
+            return mapping
 
-    assert enriched["data"] is result["data"]
+        async def batch_call(self, requests, **kwargs):
+            return [{"id": requests[0]["id"], "data": data}]
+
+    enriched = await KeyStatisticsClient().call_dataset("ds:13")
+
+    assert enriched["data"] is data
     labeled = enriched["labeled_data"]
     assert labeled["confidence"] == "best_effort"
     assert labeled["rows"][0]["symbol"] == "UUUU"
@@ -230,13 +271,112 @@ def test_enrich_key_statistics_result_labels_raw_vector() -> None:
     assert labeled["rows"][0]["values"]["primary_bucket_1_ratio"] == 0.625
     assert labeled["rows"][0]["groups"]["primary_distribution"]["bucket_ratio_sum"] == 1.0
     assert labeled["rows"][0]["raw_fields"][4]["raw_index"] == 4
+    assert labeled["context"]["dataset_key"] == "ds:13"
+    assert labeled["context"]["page_path"] == "/finance/beta/quote/UUUU:NYSEAMERICAN"
+    assert labeled["context"]["source_path"] == "/finance/beta/quote/UUUU:NYSEAMERICAN"
+    assert len(labeled["context"]["effective_request_fingerprint"]) == 64
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("data", "request_override"),
+    [
+        ([None, None, [["UUUU", "NYSEAMERICAN"], 0.625]], None),
+        ([[None, None, [["UUUU", "NYSEAMERICAN"], 0.625, 0.3125, 0.0625, 56.25, 0.4832, 0.3921, 0.1247, 35.85, 4.5, 11, 1.6842105263157894]]], None),
+        ([None, None, [["UUUU", "NYSEAMERICAN"], 0.625, 0.3125, 0.0625, 56.25, 0.4832, 0.3921, 0.1247, 35.85, 4.5, 11, 1.6842105263157894]], [["OTHER", "NASDAQ"]]),
+    ],
+)
+async def test_key_statistics_schema_or_request_mismatch_preserves_raw_result(
+    data: object, request_override: object | None
+) -> None:
+    request = [["UUUU", "NYSEAMERICAN"]]
+    mapping = ApiMapping(
+        source_url="https://www.google.com/finance/beta/quote/UUUU:NYSEAMERICAN",
+        source_path="/finance/beta/quote/UUUU:NYSEAMERICAN",
+        batchexecute_url=FINHUB_BATCHEXECUTE_URL,
+        init_data_keys=["ds:13"],
+        requests={
+            "ds:13": DataServiceRequest(
+                key="ds:13",
+                rpc_id="gXxkFd",
+                request=request,
+                metadata=metadata_for_dataset("ds:13", "gXxkFd", request, source_path="/finance/beta/quote/UUUU:NYSEAMERICAN"),
+            )
+        },
+        cache_policy=CachePolicy(None, None, None, datetime(2026, 5, 26, tzinfo=UTC), datetime(2026, 5, 26, 0, 1, tzinfo=UTC)),
+    )
+    raw_result: dict[str, object] = {"id": "gXxkFd", "data": data}
+
+    class KeyStatisticsClient(GoogleFinanceClient):
+        async def get_mapping(self, *, page_path: str = "/finance/beta", force_refresh: bool = False) -> ApiMapping:
+            return mapping
+
+        async def batch_call(self, requests, **kwargs):
+            return [raw_result]
+
+    result = await KeyStatisticsClient().call_dataset("ds:13", request_override)
+
+    assert result is raw_result
+    assert result["data"] is data
+    assert "labeled_data" not in result
 
 
 def test_quote_holdings_request_uses_holdings_tab_shape() -> None:
     assert quote_holdings_request("tsla", "nasdaq") == [[None, ["TSLA", "NASDAQ"]]]
 
 
-def test_enrich_quote_holdings_result_labels_observed_slots() -> None:
+@pytest.mark.anyio
+async def test_call_quote_holdings_paginates_politician_sections() -> None:
+    initial = {
+        "id": "K5Y6Xb",
+        "data": [[], [], None, None, [], None, "holdings-cursor-1", "transactions-cursor-1", None],
+    }
+    holdings_page = {
+        "id": "K5Y6Xb",
+        "data": [[["Gilbert Cisneros"]], None, None, None, None, None, None, None, None, None, "holdings-cursor-2"],
+    }
+    holdings_last_page = {
+        "id": "K5Y6Xb",
+        "data": [[["Later Holder"]], None, None, None, None, None, None, None, None, None, None],
+    }
+    transactions_page = {
+        "id": "K5Y6Xb",
+        "data": [None, [["Later Transaction"]], None, None, None, None, None, None],
+    }
+
+    class HoldingsClient(GoogleFinanceClient):
+        def __init__(self) -> None:
+            self.requests: list[object] = []
+
+        async def call_rpc(self, rpc_id: str, request, **kwargs):
+            assert rpc_id == "K5Y6Xb"
+            self.requests.append(request)
+            if request == quote_holdings_request("TSLA", "NASDAQ"):
+                return initial
+            continuation_type = request[0][5][0]
+            if continuation_type == 1 and request[0][-1] == "holdings-cursor-1":
+                return holdings_page
+            if continuation_type == 1:
+                return holdings_last_page
+            return transactions_page
+
+    client = HoldingsClient()
+    result = await client.call_quote_holdings("TSLA", "NASDAQ")
+
+    assert result["data"][0] == [["Gilbert Cisneros"], ["Later Holder"]]
+    assert result["data"][1] == [["Later Transaction"]]
+    assert result["data"][6] is None
+    assert result["data"][7] is None
+    assert client.requests == [
+        quote_holdings_request("TSLA", "NASDAQ"),
+        [[None, ["TSLA", "NASDAQ"], None, None, None, [1], "holdings-cursor-1"]],
+        [[None, ["TSLA", "NASDAQ"], None, None, None, [1], "holdings-cursor-2"]],
+        [[None, ["TSLA", "NASDAQ"], None, None, None, [2], None, "transactions-cursor-1"]],
+    ]
+
+
+@pytest.mark.anyio
+async def test_call_quote_holdings_labels_validated_tsla_slots() -> None:
     result = {
         "id": "K5Y6Xb",
         "data": [
@@ -298,25 +438,157 @@ def test_enrich_quote_holdings_result_labels_observed_slots() -> None:
                 ]
             ],
             None,
-            "politician-holdings-cursor",
-            "politician-transactions-cursor",
+            None,
+            None,
             "insiders-cursor",
         ],
     }
+    result["data"][0].append(
+        [
+            "b45d52cf-87d2-410f-a28b-19bf0b59974f",
+            "self",
+            "TSLA",
+            "stock",
+            "Tesla, Inc.",
+            2025,
+            "100",
+            "250",
+            "500",
+            "Updated Holder",
+            False,
+            "updated",
+            "holder",
+            "unspecified",
+            "Senate",
+            "independent",
+            "WA",
+        ]
+    )
+    result["data"][1].append(
+        [
+            "ad0ad00f-5898-4864-9d55-f08de5b04bb0",
+            "2025-01-02",
+            "TSLA",
+            "Purchase",
+            "$1,001 - $15,000",
+            "2025-01-31",
+            "Rep. Updated Holder",
+            "Updated Holder",
+            "Senate",
+            "independent",
+            "WA",
+            "self",
+        ]
+    )
+    result["data"][4].append(
+        [
+            ["TSLA", "NASDAQ"],
+            1,
+            "Updated Insider",
+            "b9ef3d0298d9f27e72e4962f0f9bc19d7606ef6f",
+            "Director",
+            "updated.jpg",
+            "3.2",
+            "Sale",
+            "S",
+            [2025, 1, 2],
+            1500.5,
+            42,
+            "USD",
+            "https://www.sec.gov/Archives/edgar/data/example.xml",
+        ]
+    )
 
-    enriched = enrich_quote_holdings_result(result)
+    class HoldingsClient(GoogleFinanceClient):
+        async def call_rpc(self, rpc_id: str, request, **kwargs):
+            return result
+
+    enriched = await HoldingsClient().call_quote_holdings("TSLA", "NASDAQ")
 
     assert enriched["data"] is result["data"]
     labeled = enriched["labeled_data"]
-    assert labeled["politician_holdings"][0]["values"]["display_name"] == "Ro Khanna"
-    assert labeled["politician_transactions"][0]["values"]["transaction_type"] == "Sell"
+    assert labeled["schema_version"] == "google_finance_quote_holdings.v3"
+    assert labeled["politician_holdings"][0]["values"] == {
+        "disclosure": 2024,
+        "owner": "spouse",
+    }
+    assert labeled["politician_holdings"][1]["values"] == {
+        "disclosure": 2025,
+        "owner": "self",
+    }
+    assert labeled["politician_transactions"][0]["values"] == {
+        "issuer": "TSLA",
+        "type": "Sell",
+        "amount": "$15,001 - $50,000",
+    }
+    assert labeled["withheld_fields"]["politician_transactions"] == ["name", "filing_date"]
     insider = labeled["insider_transactions"][0]
-    assert insider["symbol"] == "TSLA"
-    assert insider["exchange"] == "NASDAQ"
-    assert insider["transaction_date"] == "2026-06-17"
-    assert insider["insider_name"] == "Elon Musk"
-    assert insider["amount"] == 6685247561.82
+    assert insider["values"] == {
+        "type": "Uninformative buy",
+        "date": [2026, 6, 17],
+    }
+    assert insider["raw_row"] is result["data"][4][0]
+    assert labeled["insider_transactions"][1]["values"] == {
+        "type": "Sale",
+        "date": [2025, 1, 2],
+    }
+    assert labeled["insider_transactions"][1]["raw_row"] is result["data"][4][1]
     assert labeled["pagination"]["insider_transactions_cursor"] == "insiders-cursor"
+    assert labeled["withheld_fields"]["insider_transactions"] == ["insider", "position", "shares", "amount"]
+
+    result["data"][4][0][10], result["data"][4][0][11] = result["data"][4][0][11], result["data"][4][0][10]
+    swapped_numeric = await HoldingsClient().call_quote_holdings("TSLA", "NASDAQ")
+    swapped_insider = swapped_numeric["labeled_data"]["insider_transactions"][0]
+
+    assert swapped_insider["values"] == {"type": "Uninformative buy", "date": [2026, 6, 17]}
+    assert swapped_insider["raw_row"] is result["data"][4][0]
+
+    result["data"][0][0][6], result["data"][0][0][8] = result["data"][0][0][8], result["data"][0][0][6]
+    result["data"][4][0][2], result["data"][4][0][4] = result["data"][4][0][4], result["data"][4][0][2]
+    swapped_unlabeled_slots = await HoldingsClient().call_quote_holdings("TSLA", "NASDAQ")
+
+    assert swapped_unlabeled_slots["labeled_data"]["politician_holdings"][0]["values"] == {
+        "disclosure": 2024,
+        "owner": "spouse",
+    }
+    assert swapped_unlabeled_slots["labeled_data"]["insider_transactions"][0]["raw_row"] is result["data"][4][0]
+
+    result["data"][0][0][1], result["data"][0][0][9] = result["data"][0][0][9], result["data"][0][0][1]
+    owner_reordered = await HoldingsClient().call_quote_holdings("TSLA", "NASDAQ")
+    result["data"][0][0][1], result["data"][0][0][9] = result["data"][0][0][9], result["data"][0][0][1]
+    result["data"][1][0][3], result["data"][1][0][4] = result["data"][1][0][4], result["data"][1][0][3]
+    transaction_reordered = await HoldingsClient().call_quote_holdings("TSLA", "NASDAQ")
+    result["data"][1][0][3], result["data"][1][0][4] = result["data"][1][0][4], result["data"][1][0][3]
+    result["data"][1][0][1], result["data"][1][0][5] = result["data"][1][0][5], result["data"][1][0][1]
+    filing_dates_reordered = await HoldingsClient().call_quote_holdings("TSLA", "NASDAQ")
+    result["data"][1][0][1], result["data"][1][0][5] = result["data"][1][0][5], result["data"][1][0][1]
+    result["data"][4][0][2], result["data"][4][0][7] = result["data"][4][0][7], result["data"][4][0][2]
+    insider_type_reordered = await HoldingsClient().call_quote_holdings("TSLA", "NASDAQ")
+    result["data"][4][0][2], result["data"][4][0][7] = result["data"][4][0][7], result["data"][4][0][2]
+
+    assert owner_reordered is result
+    assert transaction_reordered is result
+    assert filing_dates_reordered["labeled_data"]["politician_transactions"][0]["values"] == {
+        "issuer": "TSLA",
+        "type": "Sell",
+        "amount": "$15,001 - $50,000",
+    }
+    assert insider_type_reordered is result
+
+    other_ticker = await HoldingsClient().call_quote_holdings("NVDA", "NASDAQ")
+    overridden = await HoldingsClient().call_quote_holdings(
+        "TSLA", "NASDAQ", request_override=quote_holdings_request("TSLA", "NASDAQ")
+    )
+    result["data"][4][0][9] = "not-a-date"
+    semantic_drift = await HoldingsClient().call_quote_holdings("TSLA", "NASDAQ")
+    result["data"][2] = []
+    structural_drift = await HoldingsClient().call_quote_holdings("TSLA", "NASDAQ")
+
+    assert other_ticker is result
+    assert overridden is result
+    assert semantic_drift is result
+    assert structural_drift is result
+    assert "labeled_data" not in result
 
 
 @pytest.mark.anyio
@@ -382,8 +654,10 @@ async def test_call_quote_holdings_uses_finhub_rpc_and_enriches_result() -> None
     result = await client.call_quote_holdings("tsla", "nasdaq")
 
     assert result["id"] == "K5Y6Xb"
-    assert result["labeled_data"]["schema_version"] == "google_finance_quote_holdings.v1"
+    assert "labeled_data" not in result
     assert client.calls[0]["rpc_id"] == "K5Y6Xb"
     assert client.calls[0]["request"] == [[None, ["TSLA", "NASDAQ"]]]
-    assert client.calls[0]["kwargs"]["source_path"] == "/finance/beta/quote/TSLA:NASDAQ"
-    assert client.calls[0]["kwargs"]["batchexecute_url"] == FINHUB_BATCHEXECUTE_URL
+    kwargs = client.calls[0]["kwargs"]
+    assert isinstance(kwargs, dict)
+    assert kwargs["source_path"] == "/finance/beta/quote/TSLA:NASDAQ"
+    assert kwargs["batchexecute_url"] == FINHUB_BATCHEXECUTE_URL

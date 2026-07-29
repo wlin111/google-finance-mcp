@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import re
 from dataclasses import dataclass
@@ -12,9 +13,19 @@ from urllib.parse import urlencode, urlsplit
 import anyio
 import httpx
 
+from .financials import enrich_financials_result
 from .key_statistics import enrich_key_statistics_result
-from .quote_holdings import QUOTE_HOLDINGS_RPC_ID, enrich_quote_holdings_result, quote_holdings_request
-from .rpc_metadata import EndpointMetadata, metadata_for_dataset
+from .quote_holdings import (
+    QUOTE_HOLDINGS_MAX_PAGES,
+    QUOTE_HOLDINGS_RPC_ID,
+    QuoteHoldingsContext,
+    enrich_quote_holdings_result,
+    quote_holdings_continuation_request,
+    quote_holdings_page_rows,
+    quote_holdings_pagination_cursor,
+    quote_holdings_request,
+)
+from .rpc_metadata import EndpointMetadata, LabeledDataContext, metadata_for_dataset
 
 JSONValue = Any
 UTC = timezone.utc
@@ -274,6 +285,11 @@ def build_body(requests: list[dict[str, JSONValue]]) -> str:
     return urlencode({"f.req": json.dumps([body], separators=(",", ":"))})
 
 
+def _request_fingerprint(request: JSONValue) -> str:
+    serialized = json.dumps(request, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
 def parse_batchexecute_response(raw: str) -> list[dict[str, JSONValue]]:
     stripped = re.sub(r"^\)\]\}'\n\n?", "", raw)
     lines = stripped.splitlines()
@@ -377,9 +393,11 @@ class GoogleFinanceClient:
         request = mapping.requests.get(dataset_key)
         if request is None:
             raise KeyError(f"Unknown Google Finance dataset key for {mapping.source_path}: {dataset_key}")
+        effective_request = request.request if request_override is None else request_override
+        effective_source_path = source_path or mapping.source_path
         results = await self.batch_call(
-            [{"id": request.rpc_id, "request": request.request if request_override is None else request_override}],
-            source_path=source_path or mapping.source_path,
+            [{"id": request.rpc_id, "request": effective_request}],
+            source_path=effective_source_path,
             batchexecute_url=mapping.batchexecute_url,
             hl=hl,
             gl=gl,
@@ -389,14 +407,13 @@ class GoogleFinanceClient:
             refreshed_request = refreshed.requests.get(dataset_key)
             if refreshed_request is None:
                 raise KeyError(f"Unknown Google Finance dataset key for {refreshed.source_path}: {dataset_key}")
+            mapping = refreshed
+            request = refreshed_request
+            effective_request = request.request if request_override is None else request_override
+            effective_source_path = source_path or mapping.source_path
             results = await self.batch_call(
-                [
-                    {
-                        "id": refreshed_request.rpc_id,
-                        "request": refreshed_request.request if request_override is None else request_override,
-                    }
-                ],
-                source_path=source_path or refreshed.source_path,
+                [{"id": request.rpc_id, "request": effective_request}],
+                source_path=effective_source_path,
                 batchexecute_url=refreshed.batchexecute_url,
                 hl=hl,
                 gl=gl,
@@ -406,8 +423,19 @@ class GoogleFinanceClient:
                 f"Google Finance returned no batchexecute frame for {dataset_key} on {mapping.source_path}"
             )
         result = results[0]
+        context = LabeledDataContext(
+            dataset_key=dataset_key,
+            page_path=mapping.source_path,
+            source_path=effective_source_path,
+            metadata=request.metadata,
+            mapped_request=request.request,
+            effective_request=effective_request,
+            effective_request_fingerprint=_request_fingerprint(effective_request),
+        )
         if dataset_key == "ds:13":
-            return enrich_key_statistics_result(result)
+            return enrich_key_statistics_result(result, context)
+        if request.metadata.purpose == "Financials / estimates":
+            return enrich_financials_result(result, context)
         return result
 
     async def call_rpc(
@@ -441,15 +469,89 @@ class GoogleFinanceClient:
         gl: str = "us",
     ) -> dict[str, JSONValue]:
         source_path = f"/finance/{'beta/' if beta else ''}quote/{symbol.upper()}:{exchange.upper()}"
+        request = quote_holdings_request(symbol, exchange) if request_override is None else request_override
         result = await self.call_rpc(
             QUOTE_HOLDINGS_RPC_ID,
-            quote_holdings_request(symbol, exchange) if request_override is None else request_override,
+            request,
             source_path=source_path,
             batchexecute_url=FINHUB_BATCHEXECUTE_URL,
             hl=hl,
             gl=gl,
         )
-        return enrich_quote_holdings_result(result)
+        if request_override is None:
+            result = await self._paginate_quote_holdings(
+                result,
+                symbol=symbol,
+                exchange=exchange,
+                source_path=source_path,
+                hl=hl,
+                gl=gl,
+            )
+        context = QuoteHoldingsContext(
+            source_path=source_path,
+            rpc_id=QUOTE_HOLDINGS_RPC_ID,
+            request=request,
+            used_default_request=request_override is None,
+        )
+        return enrich_quote_holdings_result(result, context)
+
+    async def _paginate_quote_holdings(
+        self,
+        result: dict[str, JSONValue],
+        *,
+        symbol: str,
+        exchange: str,
+        source_path: str,
+        hl: str,
+        gl: str,
+    ) -> dict[str, JSONValue]:
+        data = result.get("data")
+        if not isinstance(data, list):
+            return result
+
+        aggregated_data = list(data)
+        changed = False
+        for continuation_type in (1, 2):
+            rows = quote_holdings_page_rows(result, continuation_type=continuation_type)
+            if rows is None:
+                continue
+            aggregated_rows = list(rows)
+            cursor = quote_holdings_pagination_cursor(result, continuation_type=continuation_type)
+            seen_cursors: set[str] = set()
+            stream_changed = False
+            for _ in range(QUOTE_HOLDINGS_MAX_PAGES):
+                if not cursor or cursor in seen_cursors:
+                    break
+                seen_cursors.add(cursor)
+                page = await self.call_rpc(
+                    QUOTE_HOLDINGS_RPC_ID,
+                    quote_holdings_continuation_request(
+                        symbol,
+                        exchange,
+                        continuation_type=continuation_type,
+                        cursor=cursor,
+                    ),
+                    source_path=source_path,
+                    batchexecute_url=FINHUB_BATCHEXECUTE_URL,
+                    hl=hl,
+                    gl=gl,
+                )
+                page_rows = quote_holdings_page_rows(page, continuation_type=continuation_type)
+                if page_rows is None:
+                    break
+                aggregated_rows.extend(page_rows)
+                cursor = quote_holdings_pagination_cursor(page, continuation_type=continuation_type)
+                stream_changed = True
+                changed = True
+
+            data_index = continuation_type - 1
+            cursor_index = 6 if continuation_type == 1 else 7
+            if stream_changed:
+                aggregated_data[data_index] = aggregated_rows
+                if cursor_index < len(aggregated_data):
+                    aggregated_data[cursor_index] = cursor or None
+
+        return {**result, "data": aggregated_data} if changed else result
 
     async def batch_call(
         self,

@@ -34,6 +34,79 @@ class EndpointMetadata:
         }
 
 
+@dataclass(frozen=True)
+class LabeledDataContext:
+    """Live provenance required before attaching positional-vector labels."""
+
+    dataset_key: str
+    page_path: str
+    source_path: str
+    metadata: EndpointMetadata
+    mapped_request: JSONValue
+    effective_request: JSONValue
+    effective_request_fingerprint: str
+
+    def validates_dataset(
+        self, dataset_key: str, request_shape: str, purpose: str, *, require_runtime_rpc_id: bool = False
+    ) -> bool:
+        return (
+            self.dataset_key == dataset_key
+            and self.page_path == self.source_path
+            and "/quote/" in self.page_path
+            and self.metadata.dataset_key == dataset_key
+            and self.metadata.purpose == purpose
+            and self.metadata.request_shape == request_shape
+            and self.metadata.source
+            in ({"runtime-compiled-rpc-id"} if require_runtime_rpc_id else {"runtime-compiled-rpc-id", "runtime-compiled-quote-dataset-key"})
+            and self.effective_request == self.mapped_request
+            and _request_matches_shape(self.effective_request, request_shape)
+        )
+
+    def validates_result_id(self, result_id: object) -> bool:
+        return result_id == self.metadata.current_rpc_id
+
+    def quote_request_ticker(self) -> tuple[str, str] | None:
+        request = self.effective_request
+        if (
+            not isinstance(request, list)
+            or len(request) != 3
+            or not isinstance(request[0], list)
+            or len(request[0]) != 1
+            or not isinstance(request[0][0], list)
+            or len(request[0][0]) != 2
+            or request[0][0][0] is not None
+            or not isinstance(request[0][0][1], list)
+            or len(request[0][0][1]) != 2
+            or not all(isinstance(value, str) for value in request[0][0][1])
+        ):
+            return None
+        return request[0][0][1][0], request[0][0][1][1]
+
+    def quote_request_matches_page(self, ticker: tuple[str, str]) -> bool:
+        marker = "/quote/"
+        if marker not in self.page_path:
+            return False
+        route_ticker = self.page_path.split(marker, 1)[1].split("/", 1)[0].split(":", 1)
+        return len(route_ticker) == 2 and tuple(value.casefold() for value in route_ticker) == tuple(
+            value.casefold() for value in ticker
+        )
+
+    def as_labeled_data_dict(self) -> dict[str, JSONValue]:
+        return {
+            "dataset_key": self.dataset_key,
+            "page_path": self.page_path,
+            "source_path": self.source_path,
+            "metadata_provenance": {
+                "purpose": self.metadata.purpose,
+                "source": self.metadata.source,
+                "request_shape": self.metadata.request_shape,
+                "reference_rpc_ids": list(self.metadata.reference_rpc_ids),
+                "justification": list(self.metadata.justification),
+            },
+            "effective_request_fingerprint": self.effective_request_fingerprint,
+        }
+
+
 def _slug(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
 
@@ -51,7 +124,7 @@ ARTICLE_REFERENCE_RPC_PURPOSES: dict[str, dict[str, str]] = {
     "AiCwsd": {"purpose": "Chart", "request_shape": "[[tuple], mode]"},
     "nBEQBc": {"purpose": "News", "request_shape": "[type, limit, [tuple]]"},
     "o6pODe": {"purpose": "Analyst articles", "request_shape": "[tuple]"},
-    "SICF5d": {"purpose": "Related stocks", "request_shape": "[tuple, 18] or [tuple]"},
+    "SICF5d": {"purpose": "Related stocks", "request_shape": "[tuple, 4] or [tuple, 18] or [tuple]"},
     "mKsvE": {"purpose": "Stock context", "request_shape": '["GOOGL:NASDAQ"]'},
     "Xhdx2e": {"purpose": "Market indices", "request_shape": "[null, 1]"},
     "YtbmEe": {"purpose": "Market movers", "request_shape": "[[categories], count, offset]"},
@@ -87,28 +160,31 @@ QUOTE_PAGE_DATASET_PURPOSES: dict[str, tuple[str, str, str]] = {
     "ds:1": ("Equity sectors", "[null, [null, 1]]", "Sector performance list."),
     "ds:2": ("Quote summary", "[[tuple], 1]", "Main quote payload for the requested security."),
     "ds:3": ("Company profile", "[[tuple]]", "Long company/security profile and descriptive fields."),
-    "ds:4": ("Related securities", "[tuple, 4]", "Peer and related quote cards for comparison."),
     "ds:5": (
+        "Related securities",
+        "[tuple, 4]",
+        "Peer and related quote cards for comparison.",
+    ),
+    "ds:6": (
         "Analyst ratings and price targets",
         "[tuple]",
         "Analyst consensus, price target range, and recent analyst actions.",
     ),
-    "ds:6": (
+    "ds:7": (
         "Earnings history and estimates",
         "[[tuple], 1]",
         "Quarterly rows with actual and estimated revenue/EPS fields.",
     ),
-    "ds:7": (
+    "ds:8": (
         "Earnings history and estimates alternate",
         "[[tuple], 1]",
         "Alternate quarterly rows with actual and estimated revenue/EPS fields.",
     ),
-    "ds:8": (
+    "ds:9": (
         "Security overview card",
         "[[tuple], 1, 1, 1]",
         "Price, market cap, industry, logo, and summary quote fields.",
     ),
-    "ds:9": ("Intraday chart points", "[[tuple], 1]", "Minute-level price points."),
     "ds:10": (
         "Intraday OHLCV chart",
         "[[tuple], 1, null, null, null, null, null, 1]",
@@ -126,15 +202,10 @@ QUOTE_PAGE_DATASET_PURPOSES: dict[str, tuple[str, str, str]] = {
         "Compact numeric ratio vector. Responses are enriched with best-effort structural labels while preserving raw indices.",
     ),
     "ds:14": ("Quote summary alternate", "[[tuple]]", "Quote payload without the trailing mode flag."),
-    "ds:15": (
+    "ds:16": (
         "Security overview card alternate",
         "[[tuple], 1, 1, 1]",
         "Alternate price, market cap, industry, logo, and summary quote fields.",
-    ),
-    "ds:16": (
-        "Financials / estimates",
-        "[[tuple], null, 1]",
-        "Financial statement and estimate arrays.",
     ),
     "ds:17": ("Market news feed", "[2, 12, [tuple]]", "General market or related news list."),
     "ds:18": ("Security news feed", "[5, 12, [tuple]]", "Company/security-specific article list."),
@@ -493,7 +564,7 @@ def _infer_from_request(request: JSONValue) -> tuple[str, str, tuple[str, ...]] 
     if _is_company_info_like_request(request):
         return "Security tuple endpoint", "[[tuple]]", ("HqGpWd", "uwlMvd", "o6pODe", "yYvDpf")
     if _is_related_stocks_request(request):
-        return "Related stocks", "[tuple, 18] or [tuple]", ("SICF5d",)
+        return "Related stocks", "[tuple, 4] or [tuple, 18] or [tuple]", ("SICF5d",)
     if _is_news_request(request):
         return "News", "[type, limit, [tuple]]", ("nBEQBc",)
     return None
@@ -567,7 +638,7 @@ def _is_company_info_like_request(request: JSONValue) -> bool:
 
 def _is_related_stocks_request(request: JSONValue) -> bool:
     return isinstance(request, list) and len(request) in (1, 2) and _looks_like_tuple(request[0]) and (
-        len(request) == 1 or request[1] == 18
+        len(request) == 1 or request[1] in {4, 18}
     )
 
 
