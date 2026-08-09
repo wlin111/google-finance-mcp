@@ -39,6 +39,11 @@ def update_readme(release_tag: str, readme_path: Path = README_PATH) -> bool:
         updated,
     )
     updated = replace_required(
+        r"google_finance_mcp-[0-9][0-9A-Za-z._-]*-py3-none-any\.whl",
+        f"google_finance_mcp-{release_tag[1:]}-py3-none-any.whl",
+        updated,
+    )
+    updated = replace_required(
         rf"releases/download/{RELEASE_TAG_PATTERN}/google-finance-mcp-{RELEASE_TAG_PATTERN}-macos-arm64\.pkg",
         f"releases/download/{release_tag}/google-finance-mcp-{release_tag}-macos-arm64.pkg",
         updated,
