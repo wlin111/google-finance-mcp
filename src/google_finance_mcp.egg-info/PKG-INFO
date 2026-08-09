@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-finance-mcp
-Version: 0.1.2
+Version: 0.1.3
 Summary: MCP server for Google Finance's internal batchexecute RPCs.
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
