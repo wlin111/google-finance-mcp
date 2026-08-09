@@ -68,8 +68,8 @@ def test_parse_mapping_infers_purpose_without_stable_rpc_id() -> None:
 
 def test_runtime_beta_dataset_hint_covers_top_finance_articles() -> None:
     html = """
-    <script>var AF_initDataKeys = ["ds:6"];
-    var AF_dataServiceRequests = {'ds:6' : {id:'MlXU3e',request:[8]}};
+    <script>var AF_initDataKeys = ["ds:7"];
+    var AF_dataServiceRequests = {'ds:7' : {id:'dcwbnc',request:[8]}};
     var AF_initDataChunkQueue = [];</script>
     """
 
@@ -79,16 +79,54 @@ def test_runtime_beta_dataset_hint_covers_top_finance_articles() -> None:
         {"cache-control": "max-age=60"},
     )
 
-    assert mapping.requests["ds:6"].metadata.purpose == "Top finance articles"
-    assert mapping.requests["ds:6"].metadata.slug == "top_finance_articles"
-    assert mapping.requests["ds:6"].metadata.source == "runtime-compiled-beta-dataset-key"
+    assert mapping.requests["ds:7"].metadata.purpose == "Top finance articles"
+    assert mapping.requests["ds:7"].metadata.slug == "top_finance_articles"
+    assert mapping.requests["ds:7"].metadata.source == "runtime-compiled-beta-dataset-key"
+
+
+def test_beta_page_mapping_matches_current_dataset_keys() -> None:
+    html = """
+    <script>var AF_initDataKeys = ["ds:0","ds:1","ds:2","ds:3","ds:4","ds:5","ds:6","ds:7","ds:8","ds:9","ds:10","ds:11"];
+    var AF_dataServiceRequests = {'ds:0' : {id:'U20P6c',request:[1]},
+    'ds:1' : {id:'zOaLFb',request:[0,1]},
+    'ds:2' : {id:'OsY2Qc',request:[null,[null,1]]},
+    'ds:3' : {id:'HGhSgc',request:[1,0,2]},
+    'ds:4' : {id:'HGhSgc',request:[3,1]},
+    'ds:5' : {id:'U20P6c',request:[0]},
+    'ds:6' : {id:'D8Aqrd',request:["market_summary",1]},
+    'ds:7' : {id:'dcwbnc',request:[8]},
+    'ds:8' : {id:'wdVNWe',request:[2,20]},
+    'ds:9' : {id:'YtbmEe',request:[[2,3,1],4,0]},
+    'ds:10' : {id:'RiQiSd',request:[null,null,25]},
+    'ds:11' : {id:'HupQQe',request:[]}};
+    var AF_initDataChunkQueue = [];</script>
+    """
+
+    mapping = parse_mapping_from_html(
+        html,
+        "https://www.google.com/finance/beta",
+        {"cache-control": "max-age=60"},
+    )
+
+    assert mapping.requests["ds:0"].metadata.purpose == "Market overview quotes"
+    assert mapping.requests["ds:1"].metadata.purpose == "No-frame initialization endpoint"
+    assert mapping.requests["ds:2"].metadata.purpose == "Equity sectors"
+    assert mapping.requests["ds:3"].metadata.purpose == "Earnings calendar"
+    assert mapping.requests["ds:4"].metadata.purpose == "Earnings calendar secondary"
+    assert mapping.requests["ds:5"].metadata.purpose == "Market overview charts"
+    assert mapping.requests["ds:6"].metadata.purpose == "Market summary news clusters"
+    assert mapping.requests["ds:7"].metadata.purpose == "Top finance articles"
+    assert mapping.requests["ds:8"].metadata.purpose == "Market news"
+    assert mapping.requests["ds:9"].metadata.purpose == "Market movers"
+    assert mapping.requests["ds:10"].metadata.purpose == "Empty initialization endpoint"
+    assert mapping.requests["ds:11"].metadata.purpose == "Empty initialization endpoint"
 
 
 def test_quote_page_mapping_uses_quote_metadata() -> None:
     html = """
-    <html><head><script nonce="abc">var AF_initDataKeys = ["ds:2","ds:3"];
-    var AF_dataServiceRequests = {'ds:2' : {id:'gCvqoe',request:[[[null,["NVDA","NASDAQ"]]],1]},
-    'ds:3' : {id:'JL8oKc',request:[[[null,["NVDA","NASDAQ"]]]]}};
+    <html><head><script nonce="abc">var AF_initDataKeys = ["ds:3","ds:4"];
+    var AF_dataServiceRequests = {'ds:3' : {id:'gCvqoe',request:[[[null,["NVDA","NASDAQ"]]],1]},
+    'ds:4' : {id:'JL8oKc',request:[[[null,["NVDA","NASDAQ"]]]]}};
     var AF_initDataChunkQueue = [];</script></head><body>FinHubUi</body></html>
     """
 
@@ -99,25 +137,32 @@ def test_quote_page_mapping_uses_quote_metadata() -> None:
     )
 
     assert mapping.source_path == "/finance/beta/quote/NVDA:NASDAQ"
-    assert mapping.requests["ds:2"].metadata.purpose == "Quote summary"
-    assert mapping.requests["ds:2"].metadata.source == "runtime-compiled-rpc-id"
-    assert mapping.requests["ds:2"].metadata.description == "Main quote payload for the requested security."
-    assert mapping.requests["ds:3"].metadata.purpose == "Company profile"
-    assert mapping.requests["ds:3"].metadata.description == "Long company/security profile and descriptive fields."
+    assert mapping.requests["ds:3"].metadata.purpose == "Quote summary"
+    assert mapping.requests["ds:3"].metadata.source == "runtime-compiled-rpc-id"
+    assert mapping.requests["ds:3"].metadata.description == "Main quote payload for the requested security."
+    assert mapping.requests["ds:4"].metadata.purpose == "Company profile"
+    assert mapping.requests["ds:4"].metadata.description == "Long company/security profile and descriptive fields."
 
 
 def test_quote_page_mapping_matches_current_dataset_keys() -> None:
     html = """
-    <html><head><script nonce="abc">var AF_initDataKeys = ["ds:3","ds:5","ds:6","ds:7","ds:8","ds:9","ds:16","ds:19","ds:20"];
-    var AF_dataServiceRequests = {'ds:3' : {id:'JL8oKc',request:[[[null,["NVDA","NASDAQ"]]]]},
-    'ds:5' : {id:'SICF5d',request:[[null,["NVDA","NASDAQ"]],4]},
-    'ds:6' : {id:'YTM9q',request:[[null,["NVDA","NASDAQ"]]]},
-    'ds:7' : {id:'Kcy68c',request:[[[null,["NVDA","NASDAQ"]]],1]},
-    'ds:8' : {id:'XxQsbd',request:[[[null,["NVDA","NASDAQ"]]],1]},
-    'ds:9' : {id:'ADgT7b',request:[[[null,["NVDA","NASDAQ"]]],1,1,1]},
-    'ds:16' : {id:'dlNq8b',request:[[[null,["NVDA","NASDAQ"]]],1,1,1]},
-    'ds:19' : {id:'RiQiSd',request:[null,null,25]},
-    'ds:20' : {id:'X12h2b',request:[]}};
+    <html><head><script nonce="abc">var AF_initDataKeys = ["ds:1","ds:2","ds:3","ds:4","ds:5","ds:6","ds:7","ds:8","ds:9","ds:10","ds:15","ds:17","ds:18","ds:20","ds:21","ds:22"];
+    var AF_dataServiceRequests = {'ds:1' : {id:'zOaLFb',request:[0,1]},
+    'ds:2' : {id:'OsY2Qc',request:[null,[null,1]]},
+    'ds:3' : {id:'gCvqoe',request:[[[null,["NVDA","NASDAQ"]]],1]},
+    'ds:4' : {id:'JL8oKc',request:[[[null,["NVDA","NASDAQ"]]]]},
+    'ds:5' : {id:'smi6ye',request:[["NVDA","NASDAQ"]]},
+    'ds:6' : {id:'SICF5d',request:[[null,["NVDA","NASDAQ"]],4]},
+    'ds:7' : {id:'YTM9q',request:[[null,["NVDA","NASDAQ"]]]},
+    'ds:8' : {id:'Kcy68c',request:[[[null,["NVDA","NASDAQ"]]],1]},
+    'ds:9' : {id:'XxQsbd',request:[[[null,["NVDA","NASDAQ"]]],1]},
+    'ds:10' : {id:'ADgT7b',request:[[[null,["NVDA","NASDAQ"]]],1,1,1]},
+    'ds:15' : {id:'gXxkFd',request:[["NVDA","NASDAQ"]]},
+    'ds:17' : {id:'dlNq8b',request:[[[null,["NVDA","NASDAQ"]]],1,1,1]},
+    'ds:18' : {id:'Pr8h2e',request:[[[null,["NVDA","NASDAQ"]]],null,1]},
+    'ds:20' : {id:'wdVNWe',request:[5,12,[[null,["NVDA","NASDAQ"]]]]},
+    'ds:21' : {id:'RiQiSd',request:[null,null,25]},
+    'ds:22' : {id:'HupQQe',request:[]}};
     var AF_initDataChunkQueue = [];</script></head><body>FinHubUi</body></html>
     """
 
@@ -127,17 +172,25 @@ def test_quote_page_mapping_matches_current_dataset_keys() -> None:
         {"cache-control": "max-age=60"},
     )
 
-    assert mapping.requests["ds:3"].metadata.purpose == "Company profile"
-    assert mapping.requests["ds:5"].metadata.purpose == "Related securities"
-    assert mapping.requests["ds:5"].metadata.request_shape == "[tuple, 4]"
-    assert mapping.requests["ds:6"].metadata.purpose == "Analyst ratings and price targets"
-    assert mapping.requests["ds:7"].metadata.purpose == "Earnings history and estimates"
-    assert mapping.requests["ds:8"].metadata.purpose == "Earnings history and estimates alternate"
-    assert mapping.requests["ds:9"].metadata.purpose == "Security overview card"
-    assert mapping.requests["ds:16"].metadata.purpose == "Security overview card alternate"
-    assert mapping.requests["ds:19"].metadata.purpose == "Empty initialization endpoint"
-    assert mapping.requests["ds:19"].metadata.request_shape == "[null, null, 25]"
-    assert mapping.requests["ds:20"].metadata.purpose == "Empty initialization endpoint"
+    assert mapping.requests["ds:1"].metadata.purpose == "No-frame initialization endpoint"
+    assert mapping.requests["ds:2"].metadata.purpose == "Equity sectors"
+    assert mapping.requests["ds:3"].metadata.purpose == "Quote summary"
+    assert mapping.requests["ds:4"].metadata.purpose == "Company profile"
+    assert mapping.requests["ds:5"].metadata.purpose == "Market statistics"
+    assert mapping.requests["ds:5"].metadata.request_shape == '[["SYMBOL", "EXCHANGE"]]'
+    assert mapping.requests["ds:6"].metadata.purpose == "Related securities"
+    assert mapping.requests["ds:6"].metadata.request_shape == "[tuple, 4]"
+    assert mapping.requests["ds:7"].metadata.purpose == "Analyst ratings and price targets"
+    assert mapping.requests["ds:8"].metadata.purpose == "Earnings history and estimates"
+    assert mapping.requests["ds:9"].metadata.purpose == "Earnings history and estimates alternate"
+    assert mapping.requests["ds:10"].metadata.purpose == "Security overview card"
+    assert mapping.requests["ds:15"].metadata.purpose == "Market statistics"
+    assert mapping.requests["ds:17"].metadata.purpose == "Security overview card alternate"
+    assert mapping.requests["ds:18"].metadata.purpose == "Financials / estimates"
+    assert mapping.requests["ds:20"].metadata.purpose == "Security news feed"
+    assert mapping.requests["ds:21"].metadata.purpose == "Empty initialization endpoint"
+    assert mapping.requests["ds:21"].metadata.request_shape == "[null, null, 25]"
+    assert mapping.requests["ds:22"].metadata.purpose == "Empty initialization endpoint"
 
 
 def test_runtime_rpc_metadata_overrides_shifted_dataset_hint() -> None:
@@ -158,10 +211,23 @@ def test_runtime_rpc_metadata_overrides_shifted_dataset_hint() -> None:
     assert "Live RPC id Kcy68c" in mapping.requests["ds:2"].metadata.justification[0]
 
 
+def test_runtime_rpc_metadata_recognizes_current_earnings_fallback_rpc() -> None:
+    metadata = metadata_for_dataset(
+        "rpc:wKsYyb",
+        "wKsYyb",
+        [[None, ["PLTR", "NASDAQ"]]],
+        source_path="/finance/beta/quote/PLTR:NASDAQ",
+    )
+
+    assert metadata.purpose == "Current earnings detail"
+    assert metadata.source == "runtime-compiled-rpc-id"
+    assert metadata.request_shape == "[tuple]"
+
+
 def test_runtime_dataset_hint_survives_method_id_change_when_shape_still_matches() -> None:
     html = """
-    <html><head><script nonce="abc">var AF_initDataKeys = ["ds:2"];
-    var AF_dataServiceRequests = {'ds:2' : {id:'newQuoteId',request:[[[null,["NVDA","NASDAQ"]]],1]}};
+    <html><head><script nonce="abc">var AF_initDataKeys = ["ds:3"];
+    var AF_dataServiceRequests = {'ds:3' : {id:'newQuoteId',request:[[[null,["NVDA","NASDAQ"]]],1]}};
     var AF_initDataChunkQueue = [];</script></head><body>FinHubUi</body></html>
     """
 
@@ -171,9 +237,9 @@ def test_runtime_dataset_hint_survives_method_id_change_when_shape_still_matches
         {"cache-control": "max-age=60"},
     )
 
-    assert mapping.requests["ds:2"].metadata.purpose == "Quote summary"
-    assert mapping.requests["ds:2"].metadata.source == "runtime-compiled-quote-dataset-key"
-    assert "Live request matches [[tuple], 1]." in mapping.requests["ds:2"].metadata.justification
+    assert mapping.requests["ds:3"].metadata.purpose == "Quote summary"
+    assert mapping.requests["ds:3"].metadata.source == "runtime-compiled-quote-dataset-key"
+    assert "Live request matches [[tuple], 1]." in mapping.requests["ds:3"].metadata.justification
 
 
 def test_classic_page_mapping_uses_google_finance_ui_endpoint() -> None:
@@ -231,13 +297,13 @@ async def test_call_dataset_labels_key_statistics_with_valid_context() -> None:
         source_url="https://www.google.com/finance/beta/quote/UUUU:NYSEAMERICAN",
         source_path="/finance/beta/quote/UUUU:NYSEAMERICAN",
         batchexecute_url=FINHUB_BATCHEXECUTE_URL,
-        init_data_keys=["ds:13"],
+        init_data_keys=["ds:15"],
         requests={
-            "ds:13": DataServiceRequest(
-                key="ds:13",
+            "ds:15": DataServiceRequest(
+                key="ds:15",
                 rpc_id="gXxkFd",
                 request=request,
-                metadata=metadata_for_dataset("ds:13", "gXxkFd", request, source_path="/finance/beta/quote/UUUU:NYSEAMERICAN"),
+                metadata=metadata_for_dataset("ds:15", "gXxkFd", request, source_path="/finance/beta/quote/UUUU:NYSEAMERICAN"),
             )
         },
         cache_policy=CachePolicy(
@@ -261,7 +327,7 @@ async def test_call_dataset_labels_key_statistics_with_valid_context() -> None:
         async def batch_call(self, requests, **kwargs):
             return [{"id": requests[0]["id"], "data": data}]
 
-    enriched = await KeyStatisticsClient().call_dataset("ds:13")
+    enriched = await KeyStatisticsClient().call_dataset("ds:15")
 
     assert enriched["data"] is data
     labeled = enriched["labeled_data"]
@@ -271,7 +337,7 @@ async def test_call_dataset_labels_key_statistics_with_valid_context() -> None:
     assert labeled["rows"][0]["values"]["primary_bucket_1_ratio"] == 0.625
     assert labeled["rows"][0]["groups"]["primary_distribution"]["bucket_ratio_sum"] == 1.0
     assert labeled["rows"][0]["raw_fields"][4]["raw_index"] == 4
-    assert labeled["context"]["dataset_key"] == "ds:13"
+    assert labeled["context"]["dataset_key"] == "ds:15"
     assert labeled["context"]["page_path"] == "/finance/beta/quote/UUUU:NYSEAMERICAN"
     assert labeled["context"]["source_path"] == "/finance/beta/quote/UUUU:NYSEAMERICAN"
     assert len(labeled["context"]["effective_request_fingerprint"]) == 64
@@ -294,13 +360,13 @@ async def test_key_statistics_schema_or_request_mismatch_preserves_raw_result(
         source_url="https://www.google.com/finance/beta/quote/UUUU:NYSEAMERICAN",
         source_path="/finance/beta/quote/UUUU:NYSEAMERICAN",
         batchexecute_url=FINHUB_BATCHEXECUTE_URL,
-        init_data_keys=["ds:13"],
+        init_data_keys=["ds:15"],
         requests={
-            "ds:13": DataServiceRequest(
-                key="ds:13",
+            "ds:15": DataServiceRequest(
+                key="ds:15",
                 rpc_id="gXxkFd",
                 request=request,
-                metadata=metadata_for_dataset("ds:13", "gXxkFd", request, source_path="/finance/beta/quote/UUUU:NYSEAMERICAN"),
+                metadata=metadata_for_dataset("ds:15", "gXxkFd", request, source_path="/finance/beta/quote/UUUU:NYSEAMERICAN"),
             )
         },
         cache_policy=CachePolicy(None, None, None, datetime(2026, 5, 26, tzinfo=UTC), datetime(2026, 5, 26, 0, 1, tzinfo=UTC)),
@@ -314,7 +380,7 @@ async def test_key_statistics_schema_or_request_mismatch_preserves_raw_result(
         async def batch_call(self, requests, **kwargs):
             return [raw_result]
 
-    result = await KeyStatisticsClient().call_dataset("ds:13", request_override)
+    result = await KeyStatisticsClient().call_dataset("ds:15", request_override)
 
     assert result is raw_result
     assert result["data"] is data
@@ -637,6 +703,37 @@ async def test_call_dataset_refreshes_mapping_when_cached_rpc_returns_no_frame()
 
     assert result == {"id": "newRpc", "data": [["ok"]]}
     assert client.rpc_ids == ["oldRpc", "newRpc"]
+
+
+@pytest.mark.anyio
+async def test_no_frame_initialization_dataset_returns_structured_noop() -> None:
+    request = [0, 1]
+    mapping = ApiMapping(
+        source_url="https://www.google.com/finance/beta",
+        source_path="/finance/beta",
+        batchexecute_url=FINHUB_BATCHEXECUTE_URL,
+        init_data_keys=["ds:1"],
+        requests={
+            "ds:1": DataServiceRequest(
+                key="ds:1",
+                rpc_id="zOaLFb",
+                request=request,
+                metadata=metadata_for_dataset("ds:1", "zOaLFb", request),
+            )
+        },
+        cache_policy=CachePolicy(None, None, None, datetime(2026, 5, 26, tzinfo=UTC), datetime(2026, 5, 26, 0, 1, tzinfo=UTC)),
+    )
+
+    class NoFrameClient(GoogleFinanceClient):
+        async def get_mapping(self, *, page_path: str = "/finance/beta", force_refresh: bool = False) -> ApiMapping:
+            return mapping
+
+        async def batch_call(self, requests, **kwargs):
+            return []
+
+    result = await NoFrameClient().call_dataset("ds:1")
+
+    assert result == {"id": "zOaLFb", "data": None, "no_frame": True}
 
 
 @pytest.mark.anyio

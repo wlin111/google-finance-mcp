@@ -419,6 +419,8 @@ class GoogleFinanceClient:
                 gl=gl,
             )
         if not results:
+            if request.metadata.purpose == "No-frame initialization endpoint":
+                return {"id": request.rpc_id, "data": None, "no_frame": True}
             raise MappingParseError(
                 f"Google Finance returned no batchexecute frame for {dataset_key} on {mapping.source_path}"
             )
@@ -432,7 +434,7 @@ class GoogleFinanceClient:
             effective_request=effective_request,
             effective_request_fingerprint=_request_fingerprint(effective_request),
         )
-        if dataset_key == "ds:13":
+        if request.metadata.purpose in {"Market statistics", "Key statistics / ratios"}:
             return enrich_key_statistics_result(result, context)
         if request.metadata.purpose == "Financials / estimates":
             return enrich_financials_result(result, context)

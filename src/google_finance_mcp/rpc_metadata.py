@@ -141,80 +141,105 @@ ARTICLE_REFERENCE_RPC_PURPOSES: dict[str, dict[str, str]] = {
 
 BETA_DATASET_PURPOSES: dict[str, tuple[str, str, str]] = {
     "ds:0": ("Market overview quotes", "[1]", "Symbol-independent market quote groups for the beta home page."),
-    "ds:1": ("Equity sectors", "[null, [null, 1]]", "Sector performance list."),
-    "ds:2": ("Earnings calendar", "[1, 0, 2]", "Upcoming and recent earnings calendar entries."),
-    "ds:3": ("Earnings calendar secondary", "[3, 1]", "Secondary earnings calendar request; currently returns little or no data."),
-    "ds:4": ("Market overview charts", "[0]", "Market overview chart data with SVG sparklines."),
-    "ds:5": ("Market summary news clusters", '["market_summary", 1]', "Clustered market summary news cards."),
-    "ds:6": ("Top finance articles", "[8]", "Top finance article list."),
-    "ds:7": ("Market news", "[2, 20]", "Market news feed."),
-    "ds:8": ("Market movers", "[[categories], count, offset]", "Market mover lists by category, count, and offset."),
-    "ds:9": ("Empty initialization endpoint", "[null, null, 25]", "Initialization request that returns an empty payload."),
-    "ds:10": ("Empty initialization endpoint", "[]", "Initialization request that returns an empty payload."),
-    "ds:11": ("Equity sectors metadata", "[]", "Empty request that returns sector metadata."),
+    "ds:1": (
+        "No-frame initialization endpoint",
+        "[0, 1]",
+        "Home-page initialization request observed in AF_dataServiceRequests; currently returns no wrb.fr frame.",
+    ),
+    "ds:2": ("Equity sectors", "[null, [null, 1]]", "Sector performance list."),
+    "ds:3": ("Earnings calendar", "[1, 0, 2]", "Upcoming and recent earnings calendar entries."),
+    "ds:4": ("Earnings calendar secondary", "[3, 1]", "Secondary earnings calendar request; currently returns little or no data."),
+    "ds:5": ("Market overview charts", "[0]", "Market overview chart data with SVG sparklines."),
+    "ds:6": ("Market summary news clusters", '["market_summary", 1]', "Clustered market summary news cards."),
+    "ds:7": ("Top finance articles", "[8]", "Top finance article list."),
+    "ds:8": ("Market news", "[2, 20]", "Market news feed."),
+    "ds:9": ("Market movers", "[[categories], count, offset]", "Market mover lists by category, count, and offset."),
+    "ds:10": ("Empty initialization endpoint", "[null, null, 25]", "Initialization request that returns an empty payload."),
+    "ds:11": ("Empty initialization endpoint", "[]", "Initialization request that returns an empty payload."),
 }
 
 
 QUOTE_PAGE_DATASET_PURPOSES: dict[str, tuple[str, str, str]] = {
     "ds:0": ("Market overview quotes", "[1]", "Symbol-independent market quote groups."),
-    "ds:1": ("Equity sectors", "[null, [null, 1]]", "Sector performance list."),
-    "ds:2": ("Quote summary", "[[tuple], 1]", "Main quote payload for the requested security."),
-    "ds:3": ("Company profile", "[[tuple]]", "Long company/security profile and descriptive fields."),
+    "ds:1": (
+        "No-frame initialization endpoint",
+        "[0, 1]",
+        "Quote-page initialization request observed in AF_dataServiceRequests; currently returns no wrb.fr frame.",
+    ),
+    "ds:2": ("Equity sectors", "[null, [null, 1]]", "Sector performance list."),
+    "ds:3": ("Quote summary", "[[tuple], 1]", "Main quote payload for the requested security."),
+    "ds:4": ("Company profile", "[[tuple]]", "Long company/security profile and descriptive fields."),
     "ds:5": (
+        "Market statistics",
+        '[["SYMBOL", "EXCHANGE"]]',
+        "52-week high, 52-week low, beta, and related compact market-statistics values.",
+    ),
+    "ds:6": (
         "Related securities",
         "[tuple, 4]",
         "Peer and related quote cards for comparison.",
     ),
-    "ds:6": (
+    "ds:7": (
         "Analyst ratings and price targets",
         "[tuple]",
         "Analyst consensus, price target range, and recent analyst actions.",
     ),
-    "ds:7": (
+    "ds:8": (
         "Earnings history and estimates",
         "[[tuple], 1]",
         "Quarterly rows with actual and estimated revenue/EPS fields.",
     ),
-    "ds:8": (
+    "ds:9": (
         "Earnings history and estimates alternate",
         "[[tuple], 1]",
         "Alternate quarterly rows with actual and estimated revenue/EPS fields.",
     ),
-    "ds:9": (
+    "ds:10": (
         "Security overview card",
         "[[tuple], 1, 1, 1]",
         "Price, market cap, industry, logo, and summary quote fields.",
     ),
-    "ds:10": (
+    "ds:11": ("Intraday chart points", "[[tuple], 1]", "Minute-level price points."),
+    "ds:12": (
         "Intraday OHLCV chart",
         "[[tuple], 1, null, null, null, null, null, 1]",
         "Intraday candle rows with open, close, high, low, timestamp, and volume.",
     ),
-    "ds:11": ("One-month chart points", "[[tuple], 3]", "Daily price points."),
-    "ds:12": (
+    "ds:13": ("One-month chart points", "[[tuple], 3]", "Daily price points."),
+    "ds:14": (
         "One-month OHLCV chart",
         "[[tuple], 3, null, null, null, null, null, 1]",
         "Daily candle rows with open, close, high, low, timestamp, and volume.",
     ),
-    "ds:13": (
-        "Key statistics / ratios",
+    "ds:15": (
+        "Market statistics",
         '[["SYMBOL", "EXCHANGE"]]',
-        "Compact numeric ratio vector. Responses are enriched with best-effort structural labels while preserving raw indices.",
+        "52-week high, 52-week low, beta, and related compact market-statistics values.",
     ),
-    "ds:14": ("Quote summary alternate", "[[tuple]]", "Quote payload without the trailing mode flag."),
-    "ds:16": (
+    "ds:16": ("Quote summary alternate", "[[tuple]]", "Quote payload without the trailing mode flag."),
+    "ds:17": (
         "Security overview card alternate",
         "[[tuple], 1, 1, 1]",
         "Alternate price, market cap, industry, logo, and summary quote fields.",
     ),
-    "ds:17": ("Market news feed", "[2, 12, [tuple]]", "General market or related news list."),
-    "ds:18": ("Security news feed", "[5, 12, [tuple]]", "Company/security-specific article list."),
-    "ds:19": ("Empty initialization endpoint", "[null, null, 25]", "Initialization request that returns an empty payload."),
-    "ds:20": ("Empty initialization endpoint", "[]", "Initialization request that returns an empty payload."),
+    "ds:18": ("Financials / estimates", "[[tuple], null, 1]", "Financial statement and estimate arrays."),
+    "ds:19": ("Market news feed", "[2, 12, [tuple]]", "General market or related news list."),
+    "ds:20": ("Security news feed", "[5, 12, [tuple]]", "Company/security-specific article list."),
+    "ds:21": ("Empty initialization endpoint", "[null, null, 25]", "Initialization request that returns an empty payload."),
+    "ds:22": ("Empty initialization endpoint", "[]", "Initialization request that returns an empty payload."),
 }
 
 
 QUOTE_RPC_PURPOSES: dict[str, list[tuple[str, str, str]]] = {
+    "U20P6c": [("Market overview quotes", "[1]", "Symbol-independent market quote groups.")],
+    "zOaLFb": [
+        (
+            "No-frame initialization endpoint",
+            "[0, 1]",
+            "Quote-page initialization request observed in AF_dataServiceRequests; currently returns no wrb.fr frame.",
+        )
+    ],
+    "OsY2Qc": [("Equity sectors", "[null, [null, 1]]", "Sector performance list.")],
     "gCvqoe": [
         ("Quote summary", "[[tuple], 1]", "Main quote payload for the requested security."),
         ("Quote summary alternate", "[[tuple]]", "Quote payload without the trailing mode flag."),
@@ -244,6 +269,13 @@ QUOTE_RPC_PURPOSES: dict[str, list[tuple[str, str, str]]] = {
             "Alternate price, market cap, industry, logo, and summary quote fields.",
         )
     ],
+    "smi6ye": [
+        (
+            "Market statistics",
+            '[["SYMBOL", "EXCHANGE"]]',
+            "52-week high, 52-week low, beta, and related compact market-statistics values.",
+        )
+    ],
     "c2u4wc": [
         ("Intraday chart points", "[[tuple], 1]", "Minute-level price points."),
         (
@@ -260,20 +292,30 @@ QUOTE_RPC_PURPOSES: dict[str, list[tuple[str, str, str]]] = {
     ],
     "gXxkFd": [
         (
-            "Key statistics / ratios",
+            "Market statistics",
             '[["SYMBOL", "EXCHANGE"]]',
-            "Compact numeric ratio vector. Responses are enriched with best-effort structural labels while preserving raw indices.",
+            "52-week high, 52-week low, beta, and related compact market-statistics values.",
         )
     ],
     "Pr8h2e": [("Financials / estimates", "[[tuple], null, 1]", "Financial statement and estimate arrays.")],
     "kA4MVd": [
         ("Market news feed", "[2, 12, [tuple]]", "General market or related news list."),
+    ],
+    "wdVNWe": [
         ("Security news feed", "[5, 12, [tuple]]", "Company/security-specific article list."),
+    ],
+    "wKsYyb": [
+        (
+            "Current earnings detail",
+            "[tuple]",
+            "Current-quarter earnings row used by Woodstock jobs as an explicit RPC fallback when page datasets rotate.",
+        )
     ],
     "RiQiSd": [
         ("Empty initialization endpoint", "[null, null, 25]", "Initialization request that returns an empty payload.")
     ],
     "X12h2b": [("Empty initialization endpoint", "[]", "Initialization request that returns an empty payload.")],
+    "HupQQe": [("Empty initialization endpoint", "[]", "Initialization request that returns an empty payload.")],
 }
 
 
@@ -482,6 +524,8 @@ def _request_matches_shape(request: JSONValue, request_shape: str) -> bool:
         return request == [8]
     if normalized == "[2,20]":
         return request == [2, 20]
+    if normalized == "[0,1]":
+        return request == [0, 1]
     if normalized == "[null,[null,1]]":
         return request == [None, [None, 1]]
     if normalized == '["market_summary",1]':
@@ -547,6 +591,8 @@ def _infer_from_request(request: JSONValue) -> tuple[str, str, tuple[str, ...]] 
         return "Top stocks by metric", "[6, 1]", ("qt5Q2d",)
     if request == [None, [None, 1]]:
         return "Equity sectors", "[null, [null, 1]]", ()
+    if request == [0, 1]:
+        return "No-frame initialization endpoint", "[0, 1]", ()
     if _is_empty_initialization_request(request):
         return "Empty initialization endpoint", "[null, null, count]", ()
     if request == []:
@@ -648,6 +694,7 @@ def _is_news_request(request: JSONValue) -> bool:
         and len(request) in (2, 3)
         and isinstance(request[0], int)
         and isinstance(request[1], int)
+        and (len(request) == 2 or _looks_like_tuple_group(request[2]))
     )
 
 

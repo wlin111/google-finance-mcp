@@ -100,7 +100,7 @@ KEY_STATISTICS_VECTOR_FIELDS: tuple[dict[str, JSONValue], ...] = (
 def enrich_key_statistics_result(
     result: dict[str, JSONValue], context: LabeledDataContext | None = None
 ) -> dict[str, JSONValue]:
-    """Attach best-effort labels to Google Finance quote-page ds:13 results.
+    """Attach best-effort labels to Google Finance quote-page market-stat vectors.
 
     Google Finance currently returns gXxkFd as a compact vector without field
     names. The labels here are intentionally conservative: they describe the
@@ -108,9 +108,7 @@ def enrich_key_statistics_result(
     semantic names.
     """
 
-    if context is None or not context.validates_dataset(
-        "ds:13", '[["SYMBOL", "EXCHANGE"]]', "Key statistics / ratios"
-    ) or not context.validates_result_id(result.get("id")):
+    if context is None or not _validates_market_statistics_context(context) or not context.validates_result_id(result.get("id")):
         return result
 
     rows = _extract_rows(result.get("data"))
@@ -132,6 +130,14 @@ def enrich_key_statistics_result(
             "rows": labeled_rows,
         },
     }
+
+
+def _validates_market_statistics_context(context: LabeledDataContext) -> bool:
+    return any(
+        context.validates_dataset(dataset_key, '[["SYMBOL", "EXCHANGE"]]', purpose)
+        for dataset_key in ("ds:5", "ds:13", "ds:15")
+        for purpose in ("Market statistics", "Key statistics / ratios")
+    )
 
 
 def _extract_rows(data: JSONValue) -> list[list[JSONValue]]:

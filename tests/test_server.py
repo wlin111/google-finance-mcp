@@ -29,13 +29,13 @@ class FakeClient:
             source_url="https://www.google.com/finance/beta",
             source_path="/finance/beta",
             batchexecute_url="https://www.google.com/finance/beta/_/FinHubUi/data/batchexecute",
-            init_data_keys=["ds:8"],
+            init_data_keys=["ds:9"],
             requests={
-                "ds:8": DataServiceRequest(
-                    key="ds:8",
+                "ds:9": DataServiceRequest(
+                    key="ds:9",
                     rpc_id="changedHash",
                     request=[[1], 6, 0],
-                    metadata=metadata_for_dataset("ds:8", "changedHash", [[1], 6, 0]),
+                    metadata=metadata_for_dataset("ds:9", "changedHash", [[1], 6, 0]),
                 )
             },
             cache_policy=CachePolicy(
@@ -58,13 +58,13 @@ class QuoteFakeClient(FakeClient):
             source_url="https://www.google.com/finance/beta/quote/NVDA:NASDAQ",
             source_path="/finance/beta/quote/NVDA:NASDAQ",
             batchexecute_url="https://www.google.com/finance/beta/_/FinHubUi/data/batchexecute",
-            init_data_keys=["ds:13"],
+            init_data_keys=["ds:15"],
             requests={
-                "ds:13": DataServiceRequest(
-                    key="ds:13",
+                "ds:15": DataServiceRequest(
+                    key="ds:15",
                     rpc_id="gXxkFd",
                     request=request,
-                    metadata=metadata_for_dataset("ds:13", "gXxkFd", request, source_path="/finance/beta/quote/NVDA:NASDAQ"),
+                    metadata=metadata_for_dataset("ds:15", "gXxkFd", request, source_path="/finance/beta/quote/NVDA:NASDAQ"),
                 )
             },
             cache_policy=CachePolicy(
@@ -84,8 +84,8 @@ async def test_dynamic_tool_uses_rpc_purpose(monkeypatch: pytest.MonkeyPatch) ->
     tools = await _list_tools()
     names = [tool.name for tool in tools]
 
-    assert "google_finance_ds_8_market_movers" in names
-    tool = next(tool for tool in tools if tool.name == "google_finance_ds_8_market_movers")
+    assert "google_finance_ds_9_market_movers" in names
+    tool = next(tool for tool in tools if tool.name == "google_finance_ds_9_market_movers")
     description = str(tool.description or "")
     assert "Market movers" in description
     assert "Market mover lists by category, count, and offset." in description
@@ -96,9 +96,9 @@ async def test_dynamic_tool_uses_rpc_purpose(monkeypatch: pytest.MonkeyPatch) ->
 async def test_dynamic_purpose_tool_calls_dataset(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(server, "client", FakeClient())
 
-    result = await _call_tool("google_finance_ds_8_market_movers", {})
+    result = await _call_tool("google_finance_ds_9_market_movers", {})
 
-    assert result == {"dataset_key": "ds:8", "request_override": None}
+    assert result == {"dataset_key": "ds:9", "request_override": None}
 
 
 @pytest.mark.anyio
@@ -106,9 +106,9 @@ async def test_key_statistics_dynamic_tool_description_mentions_best_effort_labe
     monkeypatch.setattr(server, "client", QuoteFakeClient())
 
     tools = await _list_tools()
-    tool = next(tool for tool in tools if tool.name == "google_finance_ds_13_key_statistics_ratios")
+    tool = next(tool for tool in tools if tool.name == "google_finance_ds_15_market_statistics")
 
-    assert "best-effort structural labels" in str(tool.description)
+    assert "52-week high, 52-week low, beta" in str(tool.description)
 
 
 @pytest.mark.anyio
