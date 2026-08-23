@@ -146,29 +146,30 @@ def test_quote_page_mapping_uses_quote_metadata() -> None:
 
 def test_quote_page_mapping_matches_current_dataset_keys() -> None:
     html = """
-    <html><head><script nonce="abc">var AF_initDataKeys = ["ds:1","ds:2","ds:3","ds:4","ds:5","ds:6","ds:7","ds:8","ds:9","ds:10","ds:15","ds:17","ds:18","ds:20","ds:21","ds:22"];
+    <html><head><script nonce="abc">var AF_initDataKeys = ["ds:1","ds:2","ds:3","ds:4","ds:5","ds:6","ds:7","ds:8","ds:9","ds:10","ds:15","ds:17","ds:18","ds:20","ds:21","ds:22","ds:23"];
     var AF_dataServiceRequests = {'ds:1' : {id:'zOaLFb',request:[0,1]},
     'ds:2' : {id:'OsY2Qc',request:[null,[null,1]]},
-    'ds:3' : {id:'gCvqoe',request:[[[null,["NVDA","NASDAQ"]]],1]},
-    'ds:4' : {id:'JL8oKc',request:[[[null,["NVDA","NASDAQ"]]]]},
-    'ds:5' : {id:'smi6ye',request:[["NVDA","NASDAQ"]]},
-    'ds:6' : {id:'SICF5d',request:[[null,["NVDA","NASDAQ"]],4]},
-    'ds:7' : {id:'YTM9q',request:[[null,["NVDA","NASDAQ"]]]},
-    'ds:8' : {id:'Kcy68c',request:[[[null,["NVDA","NASDAQ"]]],1]},
-    'ds:9' : {id:'XxQsbd',request:[[[null,["NVDA","NASDAQ"]]],1]},
-    'ds:10' : {id:'ADgT7b',request:[[[null,["NVDA","NASDAQ"]]],1,1,1]},
-    'ds:15' : {id:'gXxkFd',request:[["NVDA","NASDAQ"]]},
-    'ds:17' : {id:'dlNq8b',request:[[[null,["NVDA","NASDAQ"]]],1,1,1]},
-    'ds:18' : {id:'Pr8h2e',request:[[[null,["NVDA","NASDAQ"]]],null,1]},
-    'ds:20' : {id:'wdVNWe',request:[5,12,[[null,["NVDA","NASDAQ"]]]]},
-    'ds:21' : {id:'RiQiSd',request:[null,null,25]},
-    'ds:22' : {id:'HupQQe',request:[]}};
+    'ds:3' : {id:'gCvqoe',request:[[[null,["TSLA","NASDAQ"]]],1]},
+    'ds:4' : {id:'JL8oKc',request:[[[null,["TSLA","NASDAQ"]]]]},
+    'ds:5' : {id:'smi6ye',request:[["TSLA","NASDAQ"]]},
+    'ds:6' : {id:'SICF5d',request:[[null,["TSLA","NASDAQ"]],4]},
+    'ds:7' : {id:'YTM9q',request:[[null,["TSLA","NASDAQ"]]]},
+    'ds:8' : {id:'Kcy68c',request:[[[null,["TSLA","NASDAQ"]]],1]},
+    'ds:9' : {id:'XxQsbd',request:[[[null,["TSLA","NASDAQ"]]],1]},
+    'ds:10' : {id:'ADgT7b',request:[[[null,["TSLA","NASDAQ"]]],1,1,1]},
+    'ds:15' : {id:'gXxkFd',request:[["TSLA","NASDAQ"]]},
+    'ds:17' : {id:'dlNq8b',request:[[[null,["TSLA","NASDAQ"]]],1,1,1]},
+    'ds:18' : {id:'Pr8h2e',request:[[[null,["TSLA","NASDAQ"]]],null,1]},
+    'ds:20' : {id:'wdVNWe',request:[5,12,[[null,["TSLA","NASDAQ"]]]]},
+    'ds:21' : {id:'ZdCSte',request:[null,null,25]},
+    'ds:22' : {id:'HupQQe',request:[]},
+    'ds:23' : {id:'stRW5d',request:[]}};
     var AF_initDataChunkQueue = [];</script></head><body>FinHubUi</body></html>
     """
 
     mapping = parse_mapping_from_html(
         html,
-        "https://www.google.com/finance/beta/quote/NVDA:NASDAQ",
+        "https://www.google.com/finance/beta/quote/TSLA:NASDAQ",
         {"cache-control": "max-age=60"},
     )
 
@@ -191,6 +192,10 @@ def test_quote_page_mapping_matches_current_dataset_keys() -> None:
     assert mapping.requests["ds:21"].metadata.purpose == "Empty initialization endpoint"
     assert mapping.requests["ds:21"].metadata.request_shape == "[null, null, 25]"
     assert mapping.requests["ds:22"].metadata.purpose == "Empty initialization endpoint"
+    assert mapping.requests["ds:21"].rpc_id == "ZdCSte"
+    assert mapping.requests["ds:23"].rpc_id == "stRW5d"
+    assert mapping.requests["ds:23"].metadata.purpose == "Empty initialization endpoint"
+    assert mapping.requests["ds:23"].metadata.request_shape == "[]"
 
 
 def test_runtime_rpc_metadata_overrides_shifted_dataset_hint() -> None:

@@ -227,6 +227,7 @@ QUOTE_PAGE_DATASET_PURPOSES: dict[str, tuple[str, str, str]] = {
     "ds:20": ("Security news feed", "[5, 12, [tuple]]", "Company/security-specific article list."),
     "ds:21": ("Empty initialization endpoint", "[null, null, 25]", "Initialization request that returns an empty payload."),
     "ds:22": ("Empty initialization endpoint", "[]", "Initialization request that returns an empty payload."),
+    "ds:23": ("Empty initialization endpoint", "[]", "Initialization request that returns an empty payload."),
 }
 
 
@@ -314,8 +315,12 @@ QUOTE_RPC_PURPOSES: dict[str, list[tuple[str, str, str]]] = {
     "RiQiSd": [
         ("Empty initialization endpoint", "[null, null, 25]", "Initialization request that returns an empty payload.")
     ],
+    "ZdCSte": [
+        ("Empty initialization endpoint", "[null, null, 25]", "Initialization request that returns an empty payload.")
+    ],
     "X12h2b": [("Empty initialization endpoint", "[]", "Initialization request that returns an empty payload.")],
     "HupQQe": [("Empty initialization endpoint", "[]", "Initialization request that returns an empty payload.")],
+    "stRW5d": [("Empty initialization endpoint", "[]", "Initialization request that returns an empty payload.")],
 }
 
 

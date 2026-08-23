@@ -371,13 +371,14 @@ reference examples. Calls use the live `id` currently associated with each
 
 Classic quote URLs such as `/finance/quote/GOOGL:NASDAQ` are accepted by the
 server and currently redirect to `/finance/beta/quote/GOOGL:NASDAQ`. That
-redirected quote page advertises `ds:0` through `ds:22`. These are not generated
+redirected quote page advertises `ds:0` through `ds:23`. These are not generated
 `google_finance_ds_N_<purpose>` tools; call them with
 `google_finance_call_quote_dataset` or `google_finance_call_page_dataset`.
 
 These meanings were refreshed from the live quote page and response payloads on
-2026-08-09 using `NVDA:NASDAQ`. The `id` values are examples from that run and
-can change.
+2026-08-23 using `TSLA:NASDAQ`. The `id` values are examples from that run and
+can change. The tab review confirmed endpoint purposes and request shapes, but
+did not confirm any new positional field labels.
 
 | Dataset | Example live id | Meaning | Default request shape | Notes |
 | --- | --- | --- | --- | --- |
@@ -402,8 +403,9 @@ can change.
 | `ds:18` | `Pr8h2e` | Financials / estimates | `[[tuple],null,1]` | Financial statement and estimate arrays. |
 | `ds:19` | `kA4MVd` | Market news feed | `[2,12,[tuple]]` | General market or related news list. |
 | `ds:20` | `wdVNWe` | Security news feed | `[5,12,[tuple]]` | Company/security-specific article list. |
-| `ds:21` | `RiQiSd` | Empty initialization endpoint | `[null,null,25]` | Initialization request that returns an empty data array. |
+| `ds:21` | `ZdCSte` | Empty initialization endpoint | `[null,null,25]` | Current quote-page token observed for this initialization request. |
 | `ds:22` | `HupQQe` | Empty initialization endpoint | `[]` | Initialization request that returns an empty data array. |
+| `ds:23` | `stRW5d` | Empty initialization endpoint | `[]` | New empty endpoint observed on the current quote page. |
 
 Recent Woodstock job code also uses explicit current-earnings fallback RPCs
 that are not always advertised as page `ds:*` keys: `Kcy68c`, `XxQsbd`, and

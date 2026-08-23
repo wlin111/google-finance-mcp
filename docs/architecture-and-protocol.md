@@ -61,36 +61,41 @@ reference examples. Calls use the live `id` currently associated with each
 
 Classic quote URLs such as `/finance/quote/GOOGL:NASDAQ` are accepted by the
 server and currently redirect to `/finance/beta/quote/GOOGL:NASDAQ`. That
-redirected quote page advertises `ds:0` through `ds:20`. These are not generated
+redirected quote page advertises `ds:0` through `ds:23`. These are not generated
 `google_finance_ds_N_<purpose>` tools; call them with
 `google_finance_call_quote_dataset` or `google_finance_call_page_dataset`.
 
-These meanings were discovered from the live quote page and response payloads on
-2026-06-23 using `NVDA:NASDAQ`. The `id` values are examples from that run and
-can change.
+These meanings were refreshed from the live quote page and response payloads on
+2026-08-23 using `TSLA:NASDAQ`. The `id` values are examples from that run and
+can change. The tab review confirmed endpoint purposes and request shapes, but
+did not confirm any new positional field labels.
 
 | Dataset | Example live id | Meaning | Default request shape | Notes |
 | --- | --- | --- | --- | --- |
-| `ds:0` | `hgueg` | Market overview quotes | `[1]` | Symbol-independent market quote groups. |
-| `ds:1` | `vNewwe` | Equity sectors | `[null,[null,1]]` | Sector performance list. |
-| `ds:2` | `gCvqoe` | Quote summary | `[[tuple],1]` | Main quote payload for the requested security. |
-| `ds:3` | `JL8oKc` | Company profile | `[[tuple]]` | Long company/security profile and descriptive fields. |
-| `ds:4` | `smi6ye` | Unclassified quote dataset | `—` | Dataset key observed on the live page; purpose is not mapped. |
-| `ds:5` | `SICF5d` | Related securities | `[tuple,4]` | Peer/related quote cards for comparison. |
-| `ds:6` | `YTM9q` | Analyst ratings and price targets | `[tuple]` | Analyst consensus, price target range, and recent analyst actions. |
-| `ds:7` | `Kcy68c` | Earnings history and estimates | `[[tuple],1]` | Quarterly rows with actual and estimated revenue/EPS fields. |
-| `ds:8` | `XxQsbd` | Earnings history and estimates alternate | `[[tuple],1]` | Alternate quarterly rows with actual and estimated revenue/EPS fields. |
-| `ds:9` | `ADgT7b` | Security overview card | `[[tuple],1,1,1]` | Price, market cap, industry, logo, and summary quote fields. |
-| `ds:10` | `c2u4wc` | Intraday OHLCV chart | `[[tuple],1,null,null,null,null,null,1]` | Intraday candle rows with open, close, high, low, timestamp, and volume. |
-| `ds:11` | `c2u4wc` | One-month chart points | `[[tuple],3]` | Daily price points. |
-| `ds:12` | `c2u4wc` | One-month OHLCV chart | `[[tuple],3,null,null,null,null,null,1]` | Daily candle rows with open, close, high, low, timestamp, and volume. |
-| `ds:13` | `gXxkFd` | Key statistics / ratios | `[["SYMBOL","EXCHANGE"]]` | Compact numeric ratio vector. Responses include `labeled_data` with best-effort structural labels and preserved raw indices. |
-| `ds:14` | `gCvqoe` | Quote summary alternate | `[[tuple]]` | Quote payload without the trailing mode flag. |
-| `ds:16` | `dlNq8b` | Security overview card alternate | `[[tuple],1,1,1]` | Alternate price, market cap, industry, logo, and summary quote fields. |
-| `ds:17` | `kA4MVd` | Market news feed | `[2,12,[tuple]]` | General market or related news list. |
-| `ds:18` | `kA4MVd` | Security news feed | `[5,12,[tuple]]` | Company/security-specific article list. |
-| `ds:19` | `RiQiSd` | Empty initialization endpoint | `[null,null,25]` | Initialization request that returns an empty data array. |
-| `ds:20` | `X12h2b` | Empty initialization endpoint | `[]` | Initialization request that returns an empty data array. |
+| `ds:0` | `U20P6c` | Market overview quotes | `[1]` | Symbol-independent market quote groups. |
+| `ds:1` | `zOaLFb` | No-frame initialization endpoint | `[0,1]` | Advertised by the page but currently returns no `wrb.fr` frame. |
+| `ds:2` | `OsY2Qc` | Equity sectors | `[null,[null,1]]` | Sector performance list. |
+| `ds:3` | `gCvqoe` | Quote summary | `[[tuple],1]` | Main quote payload for the requested security. |
+| `ds:4` | `JL8oKc` | Company profile | `[[tuple]]` | Long company/security profile and descriptive fields. |
+| `ds:5` | `smi6ye` | Market statistics | `[["SYMBOL","EXCHANGE"]]` | Compact market-statistics values. |
+| `ds:6` | `SICF5d` | Related securities | `[tuple,4]` | Peer/related quote cards for comparison. |
+| `ds:7` | `YTM9q` | Analyst ratings and price targets | `[tuple]` | Analyst consensus, price target range, and recent analyst actions. |
+| `ds:8` | `Kcy68c` | Earnings history and estimates | `[[tuple],1]` | Quarterly rows with actual and estimated revenue/EPS fields. |
+| `ds:9` | `XxQsbd` | Earnings history and estimates alternate | `[[tuple],1]` | Alternate quarterly rows with actual and estimated revenue/EPS fields. |
+| `ds:10` | `ADgT7b` | Security overview card | `[[tuple],1,1,1]` | Price, market cap, industry, logo, and summary quote fields. |
+| `ds:11` | `c2u4wc` | Intraday chart points | `[[tuple],1]` | Minute-level price points. |
+| `ds:12` | `c2u4wc` | Intraday OHLCV chart | `[[tuple],1,null,null,null,null,null,1]` | Intraday candle rows. |
+| `ds:13` | `c2u4wc` | One-month chart points | `[[tuple],3]` | Daily price points. |
+| `ds:14` | `c2u4wc` | One-month OHLCV chart | `[[tuple],3,null,null,null,null,null,1]` | Daily candle rows. |
+| `ds:15` | `gXxkFd` | Market statistics | `[["SYMBOL","EXCHANGE"]]` | Same compact market-statistics shape as `ds:5`. |
+| `ds:16` | `gCvqoe` | Quote summary alternate | `[[tuple]]` | Quote payload without the trailing mode flag. |
+| `ds:17` | `dlNq8b` | Security overview card alternate | `[[tuple],1,1,1]` | Alternate summary quote fields. |
+| `ds:18` | `Pr8h2e` | Financials / estimates | `[[tuple],null,1]` | Financial statement and estimate arrays. |
+| `ds:19` | `kA4MVd` | Market news feed | `[2,12,[tuple]]` | General market or related news list. |
+| `ds:20` | `wdVNWe` | Security news feed | `[5,12,[tuple]]` | Company/security-specific article list. |
+| `ds:21` | `ZdCSte` | Empty initialization endpoint | `[null,null,25]` | Current quote-page token observed for this request. |
+| `ds:22` | `HupQQe` | Empty initialization endpoint | `[]` | Initialization request that returns an empty data array. |
+| `ds:23` | `stRW5d` | Empty initialization endpoint | `[]` | New empty endpoint observed on the current quote page. |
 
 ## Quote Holdings tab RPC
 
