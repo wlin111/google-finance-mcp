@@ -478,3 +478,67 @@ async def main():
 anyio.run(main)
 PY
 ```
+
+## Cloud Deployment (Dokploy / Docker SSE)
+
+This repository includes a multi-stage `Dockerfile` and `bridge_sse.py` to deploy `google-finance-mcp` as an HTTP Server-Sent Events (SSE) server for remote AI agents (e.g. on Dokploy, Coolify, Railway, or VPS).
+
+### Deploying to Dokploy
+
+1. **Create Application**: In Dokploy, create a new Application from your GitHub repository (`master` branch).
+2. **Build Type**: Select **Dockerfile**.
+3. **Port**: Set container port to `3000`.
+4. **Health Check**:
+   - **Type**: HTTP
+   - **Path**: `/health`
+   - **Port**: `3000`
+5. **Environment Variables**:
+   Under **Environment** in Dokploy, configure:
+   - `AUTH_TOKEN`: *(Recommended)* Set a secure random string (e.g., `openssl rand -hex 24`) to protect your server.
+   - `PORT`: `3000` (default)
+   - `LOG_LEVEL`: `info` (default)
+   - `USE_SUBPROCESS`: `true` (default)
+
+### Connecting Remote Clients & Agents
+
+Once deployed (e.g., at `https://gf-mcp.yourdomain.com`):
+
+#### 1. Remote Agents using Python MCP SDK
+```python
+import os
+from mcp.client.sse import sse_client
+from mcp.client.session import ClientSession
+
+URL = "https://gf-mcp.yourdomain.com/sse"
+HEADERS = {"Authorization": f"Bearer {os.getenv('AUTH_TOKEN')}"}
+
+async def run():
+    async with sse_client(URL, headers=HEADERS) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            tools = await session.list_tools()
+            print("Tools available:", [t.name for t in tools.tools])
+```
+
+#### 2. Native SSE Clients (Cursor, OpenWebUI, LibreChat)
+- **Type**: `sse`
+- **URL**: `https://gf-mcp.yourdomain.com/sse` (or `https://gf-mcp.yourdomain.com/sse?token=YOUR_TOKEN` if client cannot set custom headers)
+
+#### 3. Claude Desktop / Local CLI Clients (via `mcp-remote`)
+Add to your client config (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "google-finance": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://gf-mcp.yourdomain.com/sse?token=YOUR_AUTH_TOKEN"
+      ]
+    }
+  }
+}
+```
+

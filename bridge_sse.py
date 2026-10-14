@@ -4,12 +4,13 @@ Stdio Process Subprocess SSE Bridge Server for MCP.
 Spawns the `google-finance-mcp` CLI command as a subprocess,
 and forwards MCP JSON-RPC messages between HTTP SSE connections
 and the subprocess stdio streams.
+
+Supports optional AUTH_TOKEN authentication via HTTP Bearer token or ?token= query parameter.
 """
 
 from __future__ import annotations
 
-import anyio
-from anyio.streams.text import TextReceiveStream, TextSendStream
+import hmac
 import json
 import logging
 import os
@@ -18,6 +19,7 @@ import sys
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
+import anyio
 import uvicorn
 from mcp.server.sse import SseServerTransport
 from starlette.applications import Starlette
@@ -35,17 +37,40 @@ logging.basicConfig(
 logger = logging.getLogger("mcp-stdio-bridge")
 
 SUBPROCESS_CMD = os.getenv("MCP_SUBPROCESS_CMD", "google-finance-mcp")
-
-# Fallback: Prefer in-process server instance if available, or subprocess execution.
-# This script supports both pure stdio subprocess bridging and native in-process transport.
 USE_SUBPROCESS = os.getenv("USE_SUBPROCESS", "true").lower() in ("true", "1", "yes")
+AUTH_TOKEN = os.getenv("AUTH_TOKEN", "").strip()
 
 sse = SseServerTransport("/messages/")
+
+
+def _is_authenticated(request: Request) -> bool:
+    """Validate Bearer token from Authorization header or ?token= query param if AUTH_TOKEN is set."""
+    if not AUTH_TOKEN:
+        return True
+
+    # 1. Check Authorization header: 'Bearer <token>'
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ", 1)[1].strip()
+        if hmac.compare_digest(token, AUTH_TOKEN):
+            return True
+
+    # 2. Check query parameter '?token=<token>' (useful for SSE EventSource clients that cannot set headers)
+    query_token = request.query_params.get("token", "")
+    if query_token and hmac.compare_digest(query_token, AUTH_TOKEN):
+        return True
+
+    return False
 
 
 @asynccontextmanager
 async def lifespan(app: Starlette) -> AsyncIterator[None]:
     logger.info("Initializing MCP SSE-to-Stdio Bridge Server...")
+    if AUTH_TOKEN:
+        logger.info("Authentication enabled (AUTH_TOKEN configured).")
+    else:
+        logger.warning("No AUTH_TOKEN set. The MCP SSE server endpoints are publicly accessible.")
+
     if USE_SUBPROCESS:
         cmd_path = shutil.which(SUBPROCESS_CMD)
         logger.info(f"Target command: '{SUBPROCESS_CMD}' (resolved: {cmd_path})")
@@ -72,7 +97,6 @@ async def _bridge_stdio_subprocess(read_stream, write_stream):
     async def forward_client_to_process():
         try:
             async for message in read_stream:
-                # message is JSON-RPC object or pydantic model; serialize to line-delimited JSON
                 if hasattr(message, "model_dump_json"):
                     payload = message.model_dump_json(by_alias=True, exclude_none=True)
                 elif isinstance(message, dict):
@@ -127,7 +151,7 @@ async def _bridge_stdio_subprocess(read_stream, write_stream):
 
 
 async def _run_in_process(read_stream, write_stream):
-    """Fallback / high-performance direct in-process server dispatch."""
+    """Fallback direct in-process server dispatch."""
     from google_finance_mcp.server import server as gf_server
     await gf_server.run(
         read_stream,
@@ -138,6 +162,9 @@ async def _run_in_process(read_stream, write_stream):
 
 async def handle_sse(request: Request) -> Response:
     """Handle incoming SSE connections from MCP clients."""
+    if not _is_authenticated(request):
+        return JSONResponse({"error": "Unauthorized: Invalid or missing AUTH_TOKEN"}, status_code=401)
+
     async with sse.connect_sse(
         request.scope, request.receive, request._send
     ) as (read_stream, write_stream):
@@ -150,6 +177,9 @@ async def handle_sse(request: Request) -> Response:
 
 async def handle_messages(request: Request) -> Response:
     """Handle incoming client JSON-RPC messages routed via SSE transport."""
+    if not _is_authenticated(request):
+        return JSONResponse({"error": "Unauthorized: Invalid or missing AUTH_TOKEN"}, status_code=401)
+
     await sse.handle_post_message(request.scope, request.receive, request._send)
     return Response(status_code=202)
 
@@ -160,8 +190,8 @@ async def handle_health(request: Request) -> JSONResponse:
         {
             "status": "healthy",
             "server": "google-finance-mcp",
+            "auth_required": bool(AUTH_TOKEN),
             "mode": "subprocess" if USE_SUBPROCESS else "in-process",
-            "cmd": SUBPROCESS_CMD if USE_SUBPROCESS else "direct",
             "endpoints": {
                 "sse": "/sse",
                 "messages": "/messages/",
