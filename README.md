@@ -479,13 +479,13 @@ anyio.run(main)
 PY
 ```
 
-## Cloud Deployment (Dokploy / Docker SSE)
+## Cloud Deployment (Dokploy / Docker)
 
-This repository includes a multi-stage `Dockerfile` and `bridge_sse.py` to deploy `google-finance-mcp` as an HTTP Server-Sent Events (SSE) server for remote AI agents (e.g. on Dokploy, Coolify, Railway, or VPS).
+This repository includes a multi-stage `Dockerfile` and `bridge_sse.py` to deploy `google-finance-mcp` as a remote MCP server supporting both **Streamable HTTP** (modern standard) and **SSE** (legacy compatibility).
 
 ### Deploying to Dokploy
 
-1. **Create Application**: In Dokploy, create a new Application from your GitHub repository (`master` branch).
+1. **Create Application**: In Dokploy, create a new Application pointing to your GitHub repository (`master` branch).
 2. **Build Type**: Select **Dockerfile**.
 3. **Port**: Set container port to `3000`.
 4. **Health Check**:
@@ -493,40 +493,60 @@ This repository includes a multi-stage `Dockerfile` and `bridge_sse.py` to deplo
    - **Path**: `/health`
    - **Port**: `3000`
 5. **Environment Variables**:
-   Under **Environment** in Dokploy, configure:
-   - `AUTH_TOKEN`: *(Recommended)* Set a secure random string (e.g., `openssl rand -hex 24`) to protect your server.
+   Under **Environment** in Dokploy:
+   - `AUTH_TOKEN`: *(Recommended)* Secret bearer token to protect your server endpoints.
    - `PORT`: `3000` (default)
    - `LOG_LEVEL`: `info` (default)
-   - `USE_SUBPROCESS`: `true` (default)
+
+---
 
 ### Connecting Remote Clients & Agents
 
 Once deployed (e.g., at `https://gf-mcp.yourdomain.com`):
 
-#### 1. Remote Agents using Python MCP SDK
+#### 1. Modern Streamable HTTP (Recommended)
+
+- **Endpoint**: `https://gf-mcp.yourdomain.com/mcp`
+- **Transport**: `streamable-http` or `http`
+
+##### In Python Agents (MCP SDK):
 ```python
 import os
-from mcp.client.sse import sse_client
-from mcp.client.session import ClientSession
+from mcp import ClientSession
+from mcp.client.streamable_http import streamable_http_client
 
-URL = "https://gf-mcp.yourdomain.com/sse"
+URL = "https://gf-mcp.yourdomain.com/mcp"
 HEADERS = {"Authorization": f"Bearer {os.getenv('AUTH_TOKEN')}"}
 
 async def run():
-    async with sse_client(URL, headers=HEADERS) as (read, write):
+    async with streamable_http_client(URL, headers=HEADERS) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
             tools = await session.list_tools()
             print("Tools available:", [t.name for t in tools.tools])
 ```
 
-#### 2. Native SSE Clients (Cursor, OpenWebUI, LibreChat)
-- **Type**: `sse`
-- **URL**: `https://gf-mcp.yourdomain.com/sse` (or `https://gf-mcp.yourdomain.com/sse?token=YOUR_TOKEN` if client cannot set custom headers)
+##### In FastMCP / Pydantic AI / Modern Agents:
+```python
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
 
-#### 3. Claude Desktop / Local CLI Clients (via `mcp-remote`)
-Add to your client config (`claude_desktop_config.json`):
+transport = StreamableHttpTransport(
+    url="https://gf-mcp.yourdomain.com/mcp",
+    headers={"Authorization": "Bearer YOUR_AUTH_TOKEN"}
+)
+client = Client(transport)
+```
 
+---
+
+#### 2. Legacy SSE (Fallback)
+
+For tools and clients that haven't updated to Streamable HTTP yet:
+
+- **SSE Endpoint**: `https://gf-mcp.yourdomain.com/sse` (or `https://gf-mcp.yourdomain.com/sse?token=YOUR_AUTH_TOKEN`)
+
+##### In Claude Desktop (via `mcp-remote`):
 ```json
 {
   "mcpServers": {
@@ -541,4 +561,5 @@ Add to your client config (`claude_desktop_config.json`):
   }
 }
 ```
+
 
